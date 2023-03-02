@@ -1,0 +1,19 @@
+[package]
+name = "vma-sys"
+version = "0.1.0"
+edition = "2021"
+links = "vma-sys"
+
+exclude = [ 
+    "vendor/VMA/*", 
+    "!vendor/VMA/include",
+    "!vendor/VMA/LICENSE.txt",
+    "vendor/VKHeaders/*",
+    "!vendor/VKHeaders/include",
+    "!vendor/VKHeaders/LICENSE.txt",
+]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[build-dependencies]
+cc = "1.0.79"

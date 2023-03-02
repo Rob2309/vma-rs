@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "vma-sys",
+    "vma",
+    "generator",
+]
