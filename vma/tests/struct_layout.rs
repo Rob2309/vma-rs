@@ -1,7 +1,7 @@
 use std::{mem::{MaybeUninit, size_of, align_of}, ptr::addr_of};
 
-use vma::AllocationCreateInfo;
-use vma_sys::VmaAllocationCreateInfo;
+use vma::{AllocationCreateInfo, AllocatorInfo};
+use vma_sys::{VmaAllocationCreateInfo, VmaAllocatorInfo};
 
 macro_rules! check_layout {
     ($struct_a:ident == $struct_b:ident {
@@ -39,6 +39,17 @@ fn allocation_create_info_layout() {
             pool == pool,
             user_data == pUserData,
             priority == priority,
+        }
+    );
+}
+
+#[test]
+fn allocator_info_layout() {
+    check_layout!(
+        AllocatorInfo == VmaAllocatorInfo {
+            instance == instance,
+            physical_device == physicalDevice,
+            device == device,
         }
     );
 }
