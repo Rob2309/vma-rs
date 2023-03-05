@@ -4,7 +4,7 @@ use std::{
     ptr::{null, null_mut},
 };
 
-use ash::vk::{self, BindBufferMemoryDeviceGroupInfo, ExtendsBindBufferMemoryInfo, Handle};
+use ash::vk::{self, Handle};
 use vma_sys::*;
 
 mod enums;

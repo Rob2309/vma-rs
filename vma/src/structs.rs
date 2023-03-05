@@ -1,10 +1,12 @@
-use std::ffi::{c_void, c_char};
+use std::ffi::{c_char, c_void};
 
 use ash::vk;
-use vma_sys::{VmaPool, VmaAllocation, VmaDefragmentationContext};
+use vma_sys::{VmaAllocation, VmaDefragmentationContext, VmaPool};
 
-use crate::{AllocationCreateFlags, MemoryUsage, PoolCreateFlags, DefragmentationFlags, DefragmentationMoveOperation};
-
+use crate::{
+    AllocationCreateFlags, DefragmentationFlags, DefragmentationMoveOperation, MemoryUsage,
+    PoolCreateFlags,
+};
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
