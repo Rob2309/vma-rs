@@ -29,7 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Install vulkan driver
-        run: apt-get update && apt-get install -y libvulkan-dev
+        run: sudo apt-get update && sudo apt-get install -y libvulkan-dev
       - uses: actions/checkout@v1
       - name: run tests
         run: cargo test --workspace --all-targets
