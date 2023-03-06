@@ -25,7 +25,7 @@ fn create_allocator() -> TestContext {
     let instance = unsafe {
         let name = CString::new("vma-tests").unwrap();
         let app_info = vk::ApplicationInfo::builder()
-            .api_version(vk::API_VERSION_1_3)
+            .api_version(vk::API_VERSION_1_0)
             .application_name(&name)
             .application_version(vk::make_api_version(0, 0, 0, 1))
             .engine_name(&name)
