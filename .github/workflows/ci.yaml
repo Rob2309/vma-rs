@@ -33,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Install vulkan driver
-        run: sudo apt-get update && sudo apt-get install -y libvulkan-dev
+        run: sudo apt-get update && sudo apt-get install -y libvulkan-dev mesa-vulkan-drivers
       - uses: actions/checkout@v1
         with:
           submodules: true
