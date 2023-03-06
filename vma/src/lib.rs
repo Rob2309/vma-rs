@@ -234,7 +234,7 @@ impl Allocator {
     pub fn set_pool_name(&self, pool: Pool, name: Option<&str>) {
         unsafe {
             let name = name.map(|n| CString::new(n).unwrap());
-            let name = name.map_or(null(), |n| n.as_ptr());
+            let name = name.as_ref().map_or(null(), |n| n.as_ptr());
 
             vmaSetPoolName(self.vma, pool.0, name);
         }
