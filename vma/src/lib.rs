@@ -29,6 +29,7 @@ impl Allocator {
         entry: &ash::Entry,
     ) -> Result<Self, vk::Result> {
         let device_props = unsafe{instance.get_physical_device_properties(physical_device)};
+        let instance_version = entry.try_enumerate_instance_version()?.unwrap_or(vk::API_VERSION_1_0);
         let vulkan_functions = VmaVulkanFunctions {
             vkGetInstanceProcAddr: unsafe {
                 std::mem::transmute(entry.static_fn().get_instance_proc_addr)
@@ -48,7 +49,7 @@ impl Allocator {
             pHeapSizeLimit: null(),
             pVulkanFunctions: &vulkan_functions,
             instance: instance.handle().as_raw() as _,
-            vulkanApiVersion: device_props.api_version,
+            vulkanApiVersion: device_props.api_version.min(instance_version),
             pTypeExternalMemoryHandleTypes: null(),
         };
 
