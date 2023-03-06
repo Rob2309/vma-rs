@@ -13,6 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
+        with:
+          submodules: true
       - name: Check cargo fmt
         run: cargo fmt --all -- --check
   
@@ -21,6 +23,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
+        with:
+          submodules: true
       - name: Check clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
 
@@ -31,6 +35,8 @@ jobs:
       - name: Install vulkan driver
         run: sudo apt-get update && sudo apt-get install -y libvulkan-dev
       - uses: actions/checkout@v1
+        with:
+          submodules: true
       - name: run tests
         run: cargo test --workspace --all-targets
       - name: run doctests
