@@ -833,3 +833,103 @@ impl Drop for Allocator {
         }
     }
 }
+
+#[repr(transparent)]
+#[derive(Debug)]
+pub struct VirtualBlock(pub(crate) VmaVirtualBlock);
+
+impl VirtualBlock {
+    pub fn new(create_info: &VirtualBlockCreateInfo) -> Result<Self, vk::Result> {
+        let mut res = null_mut();
+        let err = unsafe { vmaCreateVirtualBlock(create_info as *const _ as *const _, &mut res) };
+        if err != VK_SUCCESS {
+            Err(vk::Result::from_raw(err))
+        } else {
+            Ok(Self(res))
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        unsafe { vmaIsVirtualBlockEmpty(self.0) != 0 }
+    }
+
+    pub fn get_allocation_info(&self, allocation: VirtualAllocation) -> VirtualAllocationInfo {
+        let mut res = MaybeUninit::uninit();
+        unsafe {
+            vmaGetVirtualAllocationInfo(self.0, allocation.0, res.as_mut_ptr() as _);
+            res.assume_init()
+        }
+    }
+
+    pub fn allocate(
+        &self,
+        alloc_info: &VirtualAllocationCreateInfo,
+    ) -> Result<(VirtualAllocation, vk::DeviceSize), vk::Result> {
+        let mut allocation = null_mut();
+        let mut offset = 0;
+        let res = unsafe {
+            vmaVirtualAllocate(
+                self.0,
+                alloc_info as *const _ as *const _,
+                &mut allocation,
+                &mut offset,
+            )
+        };
+        if res != VK_SUCCESS {
+            Err(vk::Result::from_raw(res))
+        } else {
+            Ok((VirtualAllocation(allocation), offset))
+        }
+    }
+
+    pub fn free(&self, allocation: VirtualAllocation) {
+        unsafe { vmaVirtualFree(self.0, allocation.0) }
+    }
+
+    pub fn clear(&self) {
+        unsafe {
+            vmaClearVirtualBlock(self.0);
+        }
+    }
+
+    #[allow(clippy::not_unsafe_ptr_arg_deref)]
+    pub fn set_allocation_user_data(&self, allocation: VirtualAllocation, user_data: *mut c_void) {
+        unsafe {
+            vmaSetVirtualAllocationUserData(self.0, allocation.0, user_data);
+        }
+    }
+
+    pub fn get_statistics(&self) -> Statistics {
+        let mut res = MaybeUninit::uninit();
+        unsafe {
+            vmaGetVirtualBlockStatistics(self.0, res.as_mut_ptr() as _);
+            res.assume_init()
+        }
+    }
+
+    pub fn calculate_statistics(&self) -> DetailedStatistics {
+        let mut res = MaybeUninit::uninit();
+        unsafe {
+            vmaCalculateVirtualBlockStatistics(self.0, res.as_mut_ptr() as _);
+            res.assume_init()
+        }
+    }
+
+    pub fn build_stats_string(&self, detailed_map: bool) -> String {
+        unsafe {
+            let mut ptr = null_mut();
+            vmaBuildVirtualBlockStatsString(self.0, &mut ptr, if detailed_map { 1 } else { 0 });
+            let res = CStr::from_ptr(ptr).to_str().unwrap().to_string();
+            vmaFreeVirtualBlockStatsString(self.0, ptr);
+            res
+        }
+    }
+}
+
+impl Drop for VirtualBlock {
+    fn drop(&mut self) {
+        unsafe {
+            vmaDestroyVirtualBlock(self.0);
+        }
+    }
+}

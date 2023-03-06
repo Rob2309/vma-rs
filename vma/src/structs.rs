@@ -1,11 +1,14 @@
-use std::ffi::{c_char, c_void};
+use std::{
+    ffi::{c_char, c_void},
+    ptr::null_mut,
+};
 
 use ash::vk;
-use vma_sys::{VmaAllocation, VmaDefragmentationContext, VmaPool};
+use vma_sys::{VmaAllocation, VmaDefragmentationContext, VmaPool, VmaVirtualAllocation};
 
 use crate::{
     AllocationCreateFlags, DefragmentationFlags, DefragmentationMoveOperation, MemoryUsage,
-    PoolCreateFlags,
+    PoolCreateFlags, VirtualAllocationCreateFlags, VirtualBlockCreateFlags,
 };
 
 #[repr(C)]
@@ -16,7 +19,7 @@ pub struct AllocationCreateInfo {
     pub required_flags: vk::MemoryPropertyFlags,
     pub preferred_flags: vk::MemoryPropertyFlags,
     pub memory_type_bits: u32,
-    pub pool: VmaPool,
+    pub pool: Pool,
     pub user_data: *mut c_void,
     pub priority: f32,
 }
@@ -73,6 +76,12 @@ pub struct Budget {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Pool(pub(crate) VmaPool);
 
+impl Pool {
+    pub fn null() -> Self {
+        Self(null_mut())
+    }
+}
+
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub struct PoolCreateInfo {
@@ -117,4 +126,33 @@ pub struct DefragmentationPassMove {
     pub operation: DefragmentationMoveOperation,
     pub src_allocation: Allocation,
     pub dst_tmp_allocation: Allocation,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct VirtualBlockCreateInfo<'a> {
+    pub size: vk::DeviceSize,
+    pub flags: VirtualBlockCreateFlags,
+    pub allocation_callbacks: Option<&'a vk::AllocationCallbacks>,
+}
+
+#[repr(transparent)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct VirtualAllocation(pub(crate) VmaVirtualAllocation);
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct VirtualAllocationInfo {
+    pub offset: vk::DeviceSize,
+    pub size: vk::DeviceSize,
+    pub user_data: *mut c_void,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct VirtualAllocationCreateInfo {
+    pub size: vk::DeviceSize,
+    pub alignment: vk::DeviceSize,
+    pub flags: VirtualAllocationCreateFlags,
+    pub user_data: *mut c_void,
 }
