@@ -49,7 +49,7 @@ impl Allocator {
             pHeapSizeLimit: null(),
             pVulkanFunctions: &vulkan_functions,
             instance: instance.handle().as_raw() as _,
-            vulkanApiVersion: device_props.api_version.min(instance_version),
+            vulkanApiVersion: vk::API_VERSION_1_0,
             pTypeExternalMemoryHandleTypes: null(),
         };
 
