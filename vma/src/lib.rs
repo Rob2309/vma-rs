@@ -24,11 +24,11 @@ unsafe impl Sync for Allocator {}
 
 impl Allocator {
     /// Create a new VMA allocator with the given `entry`, `instance`, `physical_device` and `device`.
-    /// 
+    ///
     /// The `api_version` argument specifies which Vulkan API version is supported by both the `instance`
     /// and the given `physical_device`. This argument determines which VK functions VMA may assume to
     /// be present.
-    /// 
+    ///
     /// # Errors
     /// This functions may return any [`vk::Result`] that occurs on VMA initialization.
     pub fn new(
@@ -71,9 +71,7 @@ impl Allocator {
     }
 
     pub fn destroy(self) {
-        unsafe {
-            vmaDestroyAllocator(self.0)
-        }
+        unsafe { vmaDestroyAllocator(self.0) }
     }
 
     pub fn into_raw(self) -> usize {
@@ -134,9 +132,9 @@ impl Allocator {
     }
 
     /// Retrieve the estimated budgets of all memory heaps
-    /// 
+    ///
     /// # Panics
-    /// This function panics if `budgets` has less elements than the number 
+    /// This function panics if `budgets` has less elements than the number
     /// of memory heaps of the [`vk::PhysicalDevice`].
     pub fn get_heap_budgets(self, budgets: &mut [Budget]) {
         assert!(budgets.len() >= self.get_memory_properties().memory_heap_count as usize);
@@ -147,7 +145,7 @@ impl Allocator {
 
     /// Tries to find an appropriate memory type contained in `memory_type_bits`
     /// that is suitable for `alloc_info`.
-    /// 
+    ///
     /// # Errors
     /// - [`vk::Result::ERROR_FEATURE_NOT_PRESENT`] if no appropriate memory type was found.
     pub fn find_memory_type_index(
