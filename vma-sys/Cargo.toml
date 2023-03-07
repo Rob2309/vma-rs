@@ -1,8 +1,13 @@
 [package]
 name = "vma-sys"
 version = "0.1.0"
+authors = [ "Robin Quint" ]
 edition = "2021"
 links = "vma-sys"
+description = "Low-level bindings to the Vulkan Memory Allocator library"
+repository = "https://github.com/Rob2309/vma-rs"
+keywords = [ "vulkan", "ash", "vma", "memory", "allocator" ]
+categories = [ "external-ffi-bindings", "graphics", "memory-management" ]
 
 exclude = [ 
     "vendor/VMA/*", 

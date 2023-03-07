@@ -53,7 +53,7 @@ fn create_allocator() -> TestContext {
         (device, physical_device)
     };
 
-    let vma = Allocator::new(physical_device, &device, &instance, &entry)
+    let vma = Allocator::new(&entry, &instance, physical_device, &device, vk::API_VERSION_1_0)
         .expect("Failed to create Allocator");
 
     TestContext {

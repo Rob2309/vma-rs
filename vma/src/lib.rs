@@ -13,23 +13,32 @@ pub use enums::*;
 mod structs;
 pub use structs::*;
 
+/// Main object to use for allocations
 #[derive(Debug)]
 pub struct Allocator {
     vma: vma_sys::VmaAllocator,
 }
 
+// Safe since VMA is synchronized internally.
 unsafe impl Send for Allocator {}
 unsafe impl Sync for Allocator {}
 
 impl Allocator {
+    /// Create a new VMA allocator with the given `entry`, `instance`, `physical_device` and `device`.
+    /// 
+    /// The `api_version` argument specifies which Vulkan API version is supported by both the `instance`
+    /// and the given `physical_device`. This argument determines which VK functions VMA may assume to
+    /// be present.
+    /// 
+    /// # Errors
+    /// This functions may return any [`vk::Result`] that occurs on VMA initialization.
     pub fn new(
+        entry: &ash::Entry,
+        instance: &ash::Instance,
         physical_device: vk::PhysicalDevice,
         device: &ash::Device,
-        instance: &ash::Instance,
-        entry: &ash::Entry,
+        api_version: u32,
     ) -> Result<Self, vk::Result> {
-        let device_props = unsafe{instance.get_physical_device_properties(physical_device)};
-        let instance_version = entry.try_enumerate_instance_version()?.unwrap_or(vk::API_VERSION_1_0);
         let vulkan_functions = VmaVulkanFunctions {
             vkGetInstanceProcAddr: unsafe {
                 std::mem::transmute(entry.static_fn().get_instance_proc_addr)
@@ -49,7 +58,7 @@ impl Allocator {
             pHeapSizeLimit: null(),
             pVulkanFunctions: &vulkan_functions,
             instance: instance.handle().as_raw() as _,
-            vulkanApiVersion: vk::API_VERSION_1_0,
+            vulkanApiVersion: api_version,
             pTypeExternalMemoryHandleTypes: null(),
         };
 
@@ -70,6 +79,7 @@ impl Allocator {
         }
     }
 
+    /// Retrieves a cached version of the [`vk::PhysicalDeviceProperties`] of the used [`vk::PhysicalDevice`].
     pub fn get_physical_device_properties(&self) -> &vk::PhysicalDeviceProperties {
         unsafe {
             let mut res = null();
@@ -78,6 +88,7 @@ impl Allocator {
         }
     }
 
+    /// Retrieves a cached version of the [`vk::PhysicalDeviceMemoryProperties`] of the used [`vk::PhysicalDevice`].
     pub fn get_memory_properties(&self) -> &vk::PhysicalDeviceMemoryProperties {
         unsafe {
             let mut res = null();
@@ -86,6 +97,7 @@ impl Allocator {
         }
     }
 
+    /// Retrieves the [`vk::MemoryPropertyFlags`] of a given `type_index`.
     pub fn get_memory_type_properties(&self, type_index: u32) -> vk::MemoryPropertyFlags {
         unsafe {
             let mut res = Default::default();
@@ -108,6 +120,11 @@ impl Allocator {
         }
     }
 
+    /// Retrieve the estimated budgets of all memory heaps
+    /// 
+    /// # Panics
+    /// This function panics if `budgets` has less elements than the number 
+    /// of memory heaps of the [`vk::PhysicalDevice`].
     pub fn get_heap_budgets(&self, budgets: &mut [Budget]) {
         assert!(budgets.len() >= self.get_memory_properties().memory_heap_count as usize);
         unsafe {
@@ -115,6 +132,11 @@ impl Allocator {
         }
     }
 
+    /// Tries to find an appropriate memory type contained in `memory_type_bits`
+    /// that is suitable for `alloc_info`.
+    /// 
+    /// # Errors
+    /// - [`vk::Result::ERROR_FEATURE_NOT_PRESENT`] if no appropriate memory type was found.
     pub fn find_memory_type_index(
         &self,
         memory_type_bits: u32,
