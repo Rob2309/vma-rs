@@ -11,13 +11,23 @@ use vma::{
 };
 
 struct TestContext {
-    vma: Allocator,
     device: ash::Device,
     instance: ash::Instance,
     #[allow(unused)]
     entry: ash::Entry,
 
     physical_device: vk::PhysicalDevice,
+    vma: Allocator,
+}
+
+impl Drop for TestContext {
+    fn drop(&mut self) {
+        self.vma.destroy();
+        unsafe {
+            self.device.destroy_device(None);
+            self.instance.destroy_instance(None);
+        }
+    }
 }
 
 fn create_allocator() -> TestContext {
@@ -53,8 +63,14 @@ fn create_allocator() -> TestContext {
         (device, physical_device)
     };
 
-    let vma = Allocator::new(&entry, &instance, physical_device, &device, vk::API_VERSION_1_0)
-        .expect("Failed to create Allocator");
+    let vma = Allocator::new(
+        &entry,
+        &instance,
+        physical_device,
+        &device,
+        vk::API_VERSION_1_0,
+    )
+    .expect("Failed to create Allocator");
 
     TestContext {
         entry,
@@ -222,4 +238,6 @@ fn virtual_blocks() {
     block.free(allocation);
 
     assert!(block.is_empty());
+
+    block.destroy();
 }

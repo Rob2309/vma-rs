@@ -12,7 +12,7 @@ use crate::{
 };
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub struct AllocationCreateInfo {
     pub flags: AllocationCreateFlags,
     pub usage: MemoryUsage,
@@ -77,8 +77,16 @@ pub struct Budget {
 pub struct Pool(pub(crate) VmaPool);
 
 impl Pool {
-    pub fn null() -> Self {
+    pub const fn null() -> Self {
         Self(null_mut())
+    }
+
+    pub fn into_raw(self) -> usize {
+        self.0 as _
+    }
+
+    pub const fn from_raw(p: usize) -> Self {
+        Self(p as _)
     }
 }
 
@@ -120,6 +128,20 @@ pub struct DefragmentationInfo {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct DefragmentationContext(pub(crate) VmaDefragmentationContext);
 
+impl DefragmentationContext {
+    pub const fn null() -> Self {
+        Self(null_mut())
+    }
+
+    pub fn into_raw(self) -> usize {
+        self.0 as _
+    }
+
+    pub const fn from_raw(d: usize) -> Self {
+        Self(d as _)
+    }
+}
+
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct DefragmentationPassMove {
@@ -139,6 +161,20 @@ pub struct VirtualBlockCreateInfo<'a> {
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct VirtualAllocation(pub(crate) VmaVirtualAllocation);
+
+impl VirtualAllocation {
+    pub const fn null() -> Self {
+        Self(null_mut())
+    }
+
+    pub fn into_raw(self) -> usize {
+        self.0 as _
+    }
+
+    pub const fn from_raw(r: usize) -> Self {
+        Self(r as _)
+    }
+}
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
