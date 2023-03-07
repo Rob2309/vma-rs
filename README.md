@@ -1,4 +1,9 @@
 
+![license](https://img.shields.io/crates/l/vma?style=for-the-badge)
+[![crates.io](https://img.shields.io/crates/d/vma?style=for-the-badge)](https://crates.io/crates/vma)
+[![docs](https://img.shields.io/docsrs/vma?label=docs&style=for-the-badge)](https://docs.rs/vma)
+![CI](https://img.shields.io/github/actions/workflow/status/rob2309/vma-rs/ci.yaml?label=CI&style=for-the-badge)
+
 # vma-rs
 This library provides ash-style bindings to the Vulkan Memory Allocator library (https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator).
 
