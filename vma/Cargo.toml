@@ -1,9 +1,21 @@
 [package]
 name = "vma"
 version = "0.1.0"
+authors = [ "Robin Quint" ]
 edition = "2021"
+description = "Ash-style bindings to the Vulkan Memory Allocator"
+readme = "../README.md"
+repository = "https://github.com/rob2309/vma-rs"
+license = "MIT"
+keywords = [ "vulkan", "ash", "memory", "allocator", "vma" ]
+categories = [ "api-bindings", "external-ffi-bindings", "graphics", "memory-management" ]
+links = "vma"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+exclude = [ 
+    "vendor/**", 
+    "!vendor/vma/include/**",
+    "!vendor/vk-headers/include/vulkan/**",
+]
 
 [dependencies]
 ash = "0.37.3"
