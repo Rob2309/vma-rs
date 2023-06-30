@@ -1,6 +1,6 @@
-use std::ffi::c_void;
-
 use ash::vk;
+use ash_mem_alloc::vma;
+use std::ffi::c_void;
 
 fn main() {
     let entry = unsafe { ash::Entry::load().unwrap() };
@@ -59,10 +59,22 @@ fn main() {
     }
 }
 
-extern "system" fn allocate_cb(allocator: vma::Allocator, memory_type: u32, memory: vk::DeviceMemory, size: vk::DeviceSize, user_data: *mut c_void) {
+extern "system" fn allocate_cb(
+    allocator: vma::Allocator,
+    memory_type: u32,
+    memory: vk::DeviceMemory,
+    size: vk::DeviceSize,
+    user_data: *mut c_void,
+) {
     println!("Allocating: allocator={allocator}, memory_type={memory_type}, memory={memory:p}, size={size}, user_data:{user_data:p}");
 }
 
-extern "system" fn free_cb(allocator: vma::Allocator, memory_type: u32, memory: vk::DeviceMemory, size: vk::DeviceSize, user_data: *mut c_void) {
+extern "system" fn free_cb(
+    allocator: vma::Allocator,
+    memory_type: u32,
+    memory: vk::DeviceMemory,
+    size: vk::DeviceSize,
+    user_data: *mut c_void,
+) {
     println!("Freeing: allocator={allocator}, memory_type={memory_type}, memory={memory:p}, size={size}, user_data:{user_data:p}");
 }

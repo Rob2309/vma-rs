@@ -6,16 +6,16 @@ const HEADER: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/src/header.h");
 const VMA_INCLUDES: &str = concat!(
     "-I",
     env!("CARGO_MANIFEST_DIR"),
-    "/../vma/vendor/vma/include"
+    "/../ash-mem-alloc/vendor/vma/include"
 );
 
 const VK_INCLUDES: &str = concat!(
     "-I",
     env!("CARGO_MANIFEST_DIR"),
-    "/../vma/vendor/vk-headers/include"
+    "/../ash-mem-alloc/vendor/vk-headers/include"
 );
 
-const OUT_FILE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../vma/src/bindings.rs");
+const OUT_FILE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../ash-mem-alloc/src/bindings.rs");
 
 mod enums;
 mod functions;

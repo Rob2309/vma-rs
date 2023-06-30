@@ -2,10 +2,11 @@
 
 #[allow(clippy::missing_safety_doc)]
 mod bindings;
-pub use bindings::*;
-
 mod handles;
-pub use handles::*;
-
 mod function_ptrs;
-pub use function_ptrs::*;
+
+pub mod vma {
+    pub use super::function_ptrs::*;
+    pub use super::handles::*;
+    pub use super::bindings::*;
+}

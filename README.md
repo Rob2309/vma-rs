@@ -10,6 +10,8 @@ This crate provides auto generated [ash](https://github.com/ash-rs/ash)-style bi
 
 Every VMA struct has an associated `builder` just like ash structs:
 ```rust
+use ash_mem_alloc::vma;
+
 let info = vma::AllocatorCreateInfo::builder()
     .device(device.handle())
     .instance(instance.handle())

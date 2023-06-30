@@ -1,5 +1,5 @@
 [package]
-name = "vma"
+name = "ash-mem-alloc"
 version = "0.1.0"
 authors = [ "Robin Quint" ]
 edition = "2021"
