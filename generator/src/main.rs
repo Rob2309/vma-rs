@@ -36,7 +36,7 @@ fn main() {
     let structs = structs::generate_structs(&tu.get_entity());
     let functions = functions::generate_functions(&tu.get_entity());
 
-    let res = quote!{
+    let res = quote! {
         use ash::vk;
         use crate::handles::*;
         use crate::function_ptrs::*;
@@ -53,4 +53,3 @@ fn main() {
         .status()
         .unwrap();
 }
-

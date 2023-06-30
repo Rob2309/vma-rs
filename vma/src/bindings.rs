@@ -7,21 +7,19 @@ use ash::vk;
 pub struct AllocatorCreateFlags(u32);
 impl AllocatorCreateFlags {
     #[doc = "\\brief Allocator and all objects created from it will not be synchronized internally, so you must guarantee they are used from only one thread at a time or synchronized externally by you.\n\n    Using this flag may increase performance because internal mutexes are not used."]
-    pub const VMA_ALLOCATOR_CREATE_EXTERNALLY_SYNCHRONIZED_BIT: Self = Self(1);
+    pub const EXTERNALLY_SYNCHRONIZED: Self = Self(1);
     #[doc = "\\brief Enables usage of VK_KHR_dedicated_allocation extension.\n\n    The flag works only if VmaAllocatorCreateInfo::vulkanApiVersion `== VK_API_VERSION_1_0`.\n    When it is `VK_API_VERSION_1_1`, the flag is ignored because the extension has been promoted to Vulkan 1.1.\n\n    Using this extension will automatically allocate dedicated blocks of memory for\n    some buffers and images instead of suballocating place for them out of bigger\n    memory blocks (as if you explicitly used #VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT\n    flag) when it is recommended by the driver. It may improve performance on some\n    GPUs.\n\n    You may set this flag only if you found out that following device extensions are\n    supported, you enabled them while creating Vulkan device passed as\n    VmaAllocatorCreateInfo::device, and you want them to be used internally by this\n    library:\n\n    - VK_KHR_get_memory_requirements2 (device extension)\n    - VK_KHR_dedicated_allocation (device extension)\n\n    When this flag is set, you can experience following warnings reported by Vulkan\n    validation layer. You can ignore them.\n\n    > vkBindBufferMemory(): Binding memory to buffer 0x2d but vkGetBufferMemoryRequirements() has not been called on that buffer."]
-    pub const VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT: Self = Self(2);
+    pub const KHR_DEDICATED_ALLOCATION: Self = Self(2);
     #[doc = "Enables usage of VK_KHR_bind_memory2 extension.\n\n    The flag works only if VmaAllocatorCreateInfo::vulkanApiVersion `== VK_API_VERSION_1_0`.\n    When it is `VK_API_VERSION_1_1`, the flag is ignored because the extension has been promoted to Vulkan 1.1.\n\n    You may set this flag only if you found out that this device extension is supported,\n    you enabled it while creating Vulkan device passed as VmaAllocatorCreateInfo::device,\n    and you want it to be used internally by this library.\n\n    The extension provides functions `vkBindBufferMemory2KHR` and `vkBindImageMemory2KHR`,\n    which allow to pass a chain of `pNext` structures while binding.\n    This flag is required if you use `pNext` parameter in vmaBindBufferMemory2() or vmaBindImageMemory2()."]
-    pub const VMA_ALLOCATOR_CREATE_KHR_BIND_MEMORY2_BIT: Self = Self(4);
+    pub const KHR_BIND_MEMORY2: Self = Self(4);
     #[doc = "Enables usage of VK_EXT_memory_budget extension.\n\n    You may set this flag only if you found out that this device extension is supported,\n    you enabled it while creating Vulkan device passed as VmaAllocatorCreateInfo::device,\n    and you want it to be used internally by this library, along with another instance extension\n    VK_KHR_get_physical_device_properties2, which is required by it (or Vulkan 1.1, where this extension is promoted).\n\n    The extension provides query for current memory usage and budget, which will probably\n    be more accurate than an estimation used by the library otherwise."]
-    pub const VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT: Self = Self(8);
+    pub const EXT_MEMORY_BUDGET: Self = Self(8);
     #[doc = "Enables usage of VK_AMD_device_coherent_memory extension.\n\n    You may set this flag only if you:\n\n    - found out that this device extension is supported and enabled it while creating Vulkan device passed as VmaAllocatorCreateInfo::device,\n    - checked that `VkPhysicalDeviceCoherentMemoryFeaturesAMD::deviceCoherentMemory` is true and set it while creating the Vulkan device,\n    - want it to be used internally by this library.\n\n    The extension and accompanying device feature provide access to memory types with\n    `VK_MEMORY_PROPERTY_DEVICE_COHERENT_BIT_AMD` and `VK_MEMORY_PROPERTY_DEVICE_UNCACHED_BIT_AMD` flags.\n    They are useful mostly for writing breadcrumb markers - a common method for debugging GPU crash/hang/TDR.\n\n    When the extension is not enabled, such memory types are still enumerated, but their usage is illegal.\n    To protect from this error, if you don't create the allocator with this flag, it will refuse to allocate any memory or create a custom pool in such memory type,\n    returning `VK_ERROR_FEATURE_NOT_PRESENT`."]
-    pub const VMA_ALLOCATOR_CREATE_AMD_DEVICE_COHERENT_MEMORY_BIT: Self = Self(16);
+    pub const AMD_DEVICE_COHERENT_MEMORY: Self = Self(16);
     #[doc = "Enables usage of \"buffer device address\" feature, which allows you to use function\n    `vkGetBufferDeviceAddress*` to get raw GPU pointer to a buffer and pass it for usage inside a shader.\n\n    You may set this flag only if you:\n\n    1. (For Vulkan version < 1.2) Found as available and enabled device extension\n    VK_KHR_buffer_device_address.\n    This extension is promoted to core Vulkan 1.2.\n    2. Found as available and enabled device feature `VkPhysicalDeviceBufferDeviceAddressFeatures::bufferDeviceAddress`.\n\n    When this flag is set, you can create buffers with `VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT` using VMA.\n    The library automatically adds `VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT` to\n    allocated memory blocks wherever it might be needed.\n\n    For more information, see documentation chapter \\ref enabling_buffer_device_address."]
-    pub const VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT: Self = Self(32);
+    pub const BUFFER_DEVICE_ADDRESS: Self = Self(32);
     #[doc = "Enables usage of VK_EXT_memory_priority extension in the library.\n\n    You may set this flag only if you found available and enabled this device extension,\n    along with `VkPhysicalDeviceMemoryPriorityFeaturesEXT::memoryPriority == VK_TRUE`,\n    while creating Vulkan device passed as VmaAllocatorCreateInfo::device.\n\n    When this flag is used, VmaAllocationCreateInfo::priority and VmaPoolCreateInfo::priority\n    are used to set priorities of allocated Vulkan memory. Without it, these variables are ignored.\n\n    A priority must be a floating-point value between 0 and 1, indicating the priority of the allocation relative to other memory allocations.\n    Larger values are higher priority. The granularity of the priorities is implementation-dependent.\n    It is automatically passed to every call to `vkAllocateMemory` done by the library using structure `VkMemoryPriorityAllocateInfoEXT`.\n    The value to be used for default priority is 0.5.\n    For more details, see the documentation of the VK_EXT_memory_priority extension."]
-    pub const VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT: Self = Self(64);
-    #[doc = "Enables usage of VK_EXT_memory_priority extension in the library.\n\n    You may set this flag only if you found available and enabled this device extension,\n    along with `VkPhysicalDeviceMemoryPriorityFeaturesEXT::memoryPriority == VK_TRUE`,\n    while creating Vulkan device passed as VmaAllocatorCreateInfo::device.\n\n    When this flag is used, VmaAllocationCreateInfo::priority and VmaPoolCreateInfo::priority\n    are used to set priorities of allocated Vulkan memory. Without it, these variables are ignored.\n\n    A priority must be a floating-point value between 0 and 1, indicating the priority of the allocation relative to other memory allocations.\n    Larger values are higher priority. The granularity of the priorities is implementation-dependent.\n    It is automatically passed to every call to `vkAllocateMemory` done by the library using structure `VkMemoryPriorityAllocateInfoEXT`.\n    The value to be used for default priority is 0.5.\n    For more details, see the documentation of the VK_EXT_memory_priority extension."]
-    pub const VMA_ALLOCATOR_CREATE_FLAG_BITS_MAX_ENUM: Self = Self(2147483647);
+    pub const EXT_MEMORY_PRIORITY: Self = Self(64);
 }
 impl ::std::ops::BitOr<AllocatorCreateFlags> for AllocatorCreateFlags {
     type Output = Self;
@@ -68,27 +66,25 @@ impl ::std::ops::Not for AllocatorCreateFlags {
 pub struct MemoryUsage(u32);
 impl MemoryUsage {
     #[doc = "No intended memory usage specified.\n    Use other members of VmaAllocationCreateInfo to specify your requirements."]
-    pub const VMA_MEMORY_USAGE_UNKNOWN: Self = Self(0);
+    pub const UNKNOWN: Self = Self(0);
     #[doc = "\\deprecated Obsolete, preserved for backward compatibility.\n    Prefers `VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT`."]
-    pub const VMA_MEMORY_USAGE_GPU_ONLY: Self = Self(1);
+    pub const GPU_ONLY: Self = Self(1);
     #[doc = "\\deprecated Obsolete, preserved for backward compatibility.\n    Guarantees `VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT` and `VK_MEMORY_PROPERTY_HOST_COHERENT_BIT`."]
-    pub const VMA_MEMORY_USAGE_CPU_ONLY: Self = Self(2);
+    pub const CPU_ONLY: Self = Self(2);
     #[doc = "\\deprecated Obsolete, preserved for backward compatibility.\n    Guarantees `VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT`, prefers `VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT`."]
-    pub const VMA_MEMORY_USAGE_CPU_TO_GPU: Self = Self(3);
+    pub const CPU_TO_GPU: Self = Self(3);
     #[doc = "\\deprecated Obsolete, preserved for backward compatibility.\n    Guarantees `VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT`, prefers `VK_MEMORY_PROPERTY_HOST_CACHED_BIT`."]
-    pub const VMA_MEMORY_USAGE_GPU_TO_CPU: Self = Self(4);
+    pub const GPU_TO_CPU: Self = Self(4);
     #[doc = "\\deprecated Obsolete, preserved for backward compatibility.\n    Prefers not `VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT`."]
-    pub const VMA_MEMORY_USAGE_CPU_COPY: Self = Self(5);
+    pub const CPU_COPY: Self = Self(5);
     #[doc = "Lazily allocated GPU memory having `VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT`.\n    Exists mostly on mobile platforms. Using it on desktop PC or other GPUs with no such memory type present will fail the allocation.\n\n    Usage: Memory for transient attachment images (color attachments, depth attachments etc.), created with `VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT`.\n\n    Allocations with this usage are always created as dedicated - it implies #VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT."]
-    pub const VMA_MEMORY_USAGE_GPU_LAZILY_ALLOCATED: Self = Self(6);
+    pub const GPU_LAZILY_ALLOCATED: Self = Self(6);
     #[doc = "Selects best memory type automatically.\n    This flag is recommended for most common use cases.\n\n    When using this flag, if you want to map the allocation (using vmaMapMemory() or #VMA_ALLOCATION_CREATE_MAPPED_BIT),\n    you must pass one of the flags: #VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT or #VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT\n    in VmaAllocationCreateInfo::flags.\n\n    It can be used only with functions that let the library know `VkBufferCreateInfo` or `VkImageCreateInfo`, e.g.\n    vmaCreateBuffer(), vmaCreateImage(), vmaFindMemoryTypeIndexForBufferInfo(), vmaFindMemoryTypeIndexForImageInfo()\n    and not with generic memory allocation functions."]
-    pub const VMA_MEMORY_USAGE_AUTO: Self = Self(7);
+    pub const AUTO: Self = Self(7);
     #[doc = "Selects best memory type automatically with preference for GPU (device) memory.\n\n    When using this flag, if you want to map the allocation (using vmaMapMemory() or #VMA_ALLOCATION_CREATE_MAPPED_BIT),\n    you must pass one of the flags: #VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT or #VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT\n    in VmaAllocationCreateInfo::flags.\n\n    It can be used only with functions that let the library know `VkBufferCreateInfo` or `VkImageCreateInfo`, e.g.\n    vmaCreateBuffer(), vmaCreateImage(), vmaFindMemoryTypeIndexForBufferInfo(), vmaFindMemoryTypeIndexForImageInfo()\n    and not with generic memory allocation functions."]
-    pub const VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE: Self = Self(8);
+    pub const AUTO_PREFER_DEVICE: Self = Self(8);
     #[doc = "Selects best memory type automatically with preference for CPU (host) memory.\n\n    When using this flag, if you want to map the allocation (using vmaMapMemory() or #VMA_ALLOCATION_CREATE_MAPPED_BIT),\n    you must pass one of the flags: #VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT or #VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT\n    in VmaAllocationCreateInfo::flags.\n\n    It can be used only with functions that let the library know `VkBufferCreateInfo` or `VkImageCreateInfo`, e.g.\n    vmaCreateBuffer(), vmaCreateImage(), vmaFindMemoryTypeIndexForBufferInfo(), vmaFindMemoryTypeIndexForImageInfo()\n    and not with generic memory allocation functions."]
-    pub const VMA_MEMORY_USAGE_AUTO_PREFER_HOST: Self = Self(9);
-    #[doc = "Selects best memory type automatically with preference for CPU (host) memory.\n\n    When using this flag, if you want to map the allocation (using vmaMapMemory() or #VMA_ALLOCATION_CREATE_MAPPED_BIT),\n    you must pass one of the flags: #VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT or #VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT\n    in VmaAllocationCreateInfo::flags.\n\n    It can be used only with functions that let the library know `VkBufferCreateInfo` or `VkImageCreateInfo`, e.g.\n    vmaCreateBuffer(), vmaCreateImage(), vmaFindMemoryTypeIndexForBufferInfo(), vmaFindMemoryTypeIndexForImageInfo()\n    and not with generic memory allocation functions."]
-    pub const VMA_MEMORY_USAGE_MAX_ENUM: Self = Self(2147483647);
+    pub const AUTO_PREFER_HOST: Self = Self(9);
 }
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -96,41 +92,39 @@ impl MemoryUsage {
 pub struct AllocationCreateFlags(u32);
 impl AllocationCreateFlags {
     #[doc = "\\brief Set this flag if the allocation should have its own memory block.\n\n    Use it for special, big resources, like fullscreen images used as attachments."]
-    pub const VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT: Self = Self(1);
+    pub const DEDICATED_MEMORY: Self = Self(1);
     #[doc = "\\brief Set this flag to only try to allocate from existing `VkDeviceMemory` blocks and never create new such block.\n\n    If new allocation cannot be placed in any of the existing blocks, allocation\n    fails with `VK_ERROR_OUT_OF_DEVICE_MEMORY` error.\n\n    You should not use #VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT and\n    #VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT at the same time. It makes no sense."]
-    pub const VMA_ALLOCATION_CREATE_NEVER_ALLOCATE_BIT: Self = Self(2);
+    pub const NEVER_ALLOCATE: Self = Self(2);
     #[doc = "\\brief Set this flag to use a memory that will be persistently mapped and retrieve pointer to it.\n\n    Pointer to mapped memory will be returned through VmaAllocationInfo::pMappedData.\n\n    It is valid to use this flag for allocation made from memory type that is not\n    `HOST_VISIBLE`. This flag is then ignored and memory is not mapped. This is\n    useful if you need an allocation that is efficient to use on GPU\n    (`DEVICE_LOCAL`) and still want to map it directly if possible on platforms that\n    support it (e.g. Intel GPU)."]
-    pub const VMA_ALLOCATION_CREATE_MAPPED_BIT: Self = Self(4);
+    pub const MAPPED: Self = Self(4);
     #[doc = "\\deprecated Preserved for backward compatibility. Consider using vmaSetAllocationName() instead.\n\n    Set this flag to treat VmaAllocationCreateInfo::pUserData as pointer to a\n    null-terminated string. Instead of copying pointer value, a local copy of the\n    string is made and stored in allocation's `pName`. The string is automatically\n    freed together with the allocation. It is also used in vmaBuildStatsString()."]
-    pub const VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT: Self = Self(32);
+    pub const USER_DATA_COPY_STRING: Self = Self(32);
     #[doc = "Allocation will be created from upper stack in a double stack pool.\n\n    This flag is only allowed for custom pools created with #VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT flag."]
-    pub const VMA_ALLOCATION_CREATE_UPPER_ADDRESS_BIT: Self = Self(64);
+    pub const UPPER_ADDRESS: Self = Self(64);
     #[doc = "Create both buffer/image and allocation, but don't bind them together.\n    It is useful when you want to bind yourself to do some more advanced binding, e.g. using some extensions.\n    The flag is meaningful only with functions that bind by default: vmaCreateBuffer(), vmaCreateImage().\n    Otherwise it is ignored.\n\n    If you want to make sure the new buffer/image is not tied to the new memory allocation\n    through `VkMemoryDedicatedAllocateInfoKHR` structure in case the allocation ends up in its own memory block,\n    use also flag #VMA_ALLOCATION_CREATE_CAN_ALIAS_BIT."]
-    pub const VMA_ALLOCATION_CREATE_DONT_BIND_BIT: Self = Self(128);
+    pub const DONT_BIND: Self = Self(128);
     #[doc = "Create allocation only if additional device memory required for it, if any, won't exceed\n    memory budget. Otherwise return `VK_ERROR_OUT_OF_DEVICE_MEMORY`."]
-    pub const VMA_ALLOCATION_CREATE_WITHIN_BUDGET_BIT: Self = Self(256);
+    pub const WITHIN_BUDGET: Self = Self(256);
     #[doc = "\\brief Set this flag if the allocated memory will have aliasing resources.\n\n    Usage of this flag prevents supplying `VkMemoryDedicatedAllocateInfoKHR` when #VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT is specified.\n    Otherwise created dedicated memory will not be suitable for aliasing resources, resulting in Vulkan Validation Layer errors."]
-    pub const VMA_ALLOCATION_CREATE_CAN_ALIAS_BIT: Self = Self(512);
+    pub const CAN_ALIAS: Self = Self(512);
     #[doc = "Requests possibility to map the allocation (using vmaMapMemory() or #VMA_ALLOCATION_CREATE_MAPPED_BIT).\n\n    - If you use #VMA_MEMORY_USAGE_AUTO or other `VMA_MEMORY_USAGE_AUTO*` value,\n      you must use this flag to be able to map the allocation. Otherwise, mapping is incorrect.\n    - If you use other value of #VmaMemoryUsage, this flag is ignored and mapping is always possible in memory types that are `HOST_VISIBLE`.\n      This includes allocations created in \\ref custom_memory_pools.\n\n    Declares that mapped memory will only be written sequentially, e.g. using `memcpy()` or a loop writing number-by-number,\n    never read or accessed randomly, so a memory type can be selected that is uncached and write-combined.\n\n    \\warning Violating this declaration may work correctly, but will likely be very slow.\n    Watch out for implicit reads introduced by doing e.g. `pMappedData[i] += x;`\n    Better prepare your data in a local variable and `memcpy()` it to the mapped pointer all at once."]
-    pub const VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT: Self = Self(1024);
+    pub const HOST_ACCESS_SEQUENTIAL_WRITE: Self = Self(1024);
     #[doc = "Requests possibility to map the allocation (using vmaMapMemory() or #VMA_ALLOCATION_CREATE_MAPPED_BIT).\n\n    - If you use #VMA_MEMORY_USAGE_AUTO or other `VMA_MEMORY_USAGE_AUTO*` value,\n      you must use this flag to be able to map the allocation. Otherwise, mapping is incorrect.\n    - If you use other value of #VmaMemoryUsage, this flag is ignored and mapping is always possible in memory types that are `HOST_VISIBLE`.\n      This includes allocations created in \\ref custom_memory_pools.\n\n    Declares that mapped memory can be read, written, and accessed in random order,\n    so a `HOST_CACHED` memory type is required."]
-    pub const VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT: Self = Self(2048);
+    pub const HOST_ACCESS_RANDOM: Self = Self(2048);
     #[doc = "Together with #VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT or #VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT,\n    it says that despite request for host access, a not-`HOST_VISIBLE` memory type can be selected\n    if it may improve performance.\n\n    By using this flag, you declare that you will check if the allocation ended up in a `HOST_VISIBLE` memory type\n    (e.g. using vmaGetAllocationMemoryProperties()) and if not, you will create some \"staging\" buffer and\n    issue an explicit transfer to write/read your data.\n    To prepare for this possibility, don't forget to add appropriate flags like\n    `VK_BUFFER_USAGE_TRANSFER_DST_BIT`, `VK_BUFFER_USAGE_TRANSFER_SRC_BIT` to the parameters of created buffer or image."]
-    pub const VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT: Self = Self(4096);
+    pub const HOST_ACCESS_ALLOW_TRANSFER_INSTEAD: Self = Self(4096);
     #[doc = "Allocation strategy that chooses smallest possible free range for the allocation\n    to minimize memory usage and fragmentation, possibly at the expense of allocation time."]
-    pub const VMA_ALLOCATION_CREATE_STRATEGY_MIN_MEMORY_BIT: Self = Self(65536);
+    pub const STRATEGY_MIN_MEMORY: Self = Self(65536);
     #[doc = "Allocation strategy that chooses first suitable free range for the allocation -\n    not necessarily in terms of the smallest offset but the one that is easiest and fastest to find\n    to minimize allocation time, possibly at the expense of allocation quality."]
-    pub const VMA_ALLOCATION_CREATE_STRATEGY_MIN_TIME_BIT: Self = Self(131072);
+    pub const STRATEGY_MIN_TIME: Self = Self(131072);
     #[doc = "Allocation strategy that chooses always the lowest offset in available space.\n    This is not the most efficient strategy but achieves highly packed data.\n    Used internally by defragmentation, not recommended in typical usage."]
-    pub const VMA_ALLOCATION_CREATE_STRATEGY_MIN_OFFSET_BIT: Self = Self(262144);
+    pub const STRATEGY_MIN_OFFSET: Self = Self(262144);
     #[doc = "Alias to #VMA_ALLOCATION_CREATE_STRATEGY_MIN_MEMORY_BIT."]
-    pub const VMA_ALLOCATION_CREATE_STRATEGY_BEST_FIT_BIT: Self = Self(65536);
+    pub const STRATEGY_BEST_FIT: Self = Self(65536);
     #[doc = "Alias to #VMA_ALLOCATION_CREATE_STRATEGY_MIN_TIME_BIT."]
-    pub const VMA_ALLOCATION_CREATE_STRATEGY_FIRST_FIT_BIT: Self = Self(131072);
+    pub const STRATEGY_FIRST_FIT: Self = Self(131072);
     #[doc = "A bit mask to extract only `STRATEGY` bits from entire set of flags."]
-    pub const VMA_ALLOCATION_CREATE_STRATEGY_MASK: Self = Self(458752);
-    #[doc = "A bit mask to extract only `STRATEGY` bits from entire set of flags."]
-    pub const VMA_ALLOCATION_CREATE_FLAG_BITS_MAX_ENUM: Self = Self(2147483647);
+    pub const STRATEGY_MASK: Self = Self(458752);
 }
 impl ::std::ops::BitOr<AllocationCreateFlags> for AllocationCreateFlags {
     type Output = Self;
@@ -177,13 +171,11 @@ impl ::std::ops::Not for AllocationCreateFlags {
 pub struct PoolCreateFlags(u32);
 impl PoolCreateFlags {
     #[doc = "\\brief Use this flag if you always allocate only buffers and linear images or only optimal images out of this pool and so Buffer-Image Granularity can be ignored.\n\n    This is an optional optimization flag.\n\n    If you always allocate using vmaCreateBuffer(), vmaCreateImage(),\n    vmaAllocateMemoryForBuffer(), then you don't need to use it because allocator\n    knows exact type of your allocations so it can handle Buffer-Image Granularity\n    in the optimal way.\n\n    If you also allocate using vmaAllocateMemoryForImage() or vmaAllocateMemory(),\n    exact type of such allocations is not known, so allocator must be conservative\n    in handling Buffer-Image Granularity, which can lead to suboptimal allocation\n    (wasted memory). In that case, if you can make sure you always allocate only\n    buffers and linear images or only optimal images out of this pool, use this flag\n    to make allocator disregard Buffer-Image Granularity and so make allocations\n    faster and more optimal."]
-    pub const VMA_POOL_CREATE_IGNORE_BUFFER_IMAGE_GRANULARITY_BIT: Self = Self(2);
+    pub const IGNORE_BUFFER_IMAGE_GRANULARITY: Self = Self(2);
     #[doc = "\\brief Enables alternative, linear allocation algorithm in this pool.\n\n    Specify this flag to enable linear allocation algorithm, which always creates\n    new allocations after last one and doesn't reuse space from allocations freed in\n    between. It trades memory consumption for simplified algorithm and data\n    structure, which has better performance and uses less memory for metadata.\n\n    By using this flag, you can achieve behavior of free-at-once, stack,\n    ring buffer, and double stack.\n    For details, see documentation chapter \\ref linear_algorithm."]
-    pub const VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT: Self = Self(4);
+    pub const LINEAR_ALGORITHM: Self = Self(4);
     #[doc = "Bit mask to extract only `ALGORITHM` bits from entire set of flags."]
-    pub const VMA_POOL_CREATE_ALGORITHM_MASK: Self = Self(4);
-    #[doc = "Bit mask to extract only `ALGORITHM` bits from entire set of flags."]
-    pub const VMA_POOL_CREATE_FLAG_BITS_MAX_ENUM: Self = Self(2147483647);
+    pub const ALGORITHM_MASK: Self = Self(4);
 }
 impl ::std::ops::BitOr<PoolCreateFlags> for PoolCreateFlags {
     type Output = Self;
@@ -229,15 +221,13 @@ impl ::std::ops::Not for PoolCreateFlags {
 #[doc = "Flags to be passed as VmaDefragmentationInfo::flags."]
 pub struct DefragmentationFlags(u32);
 impl DefragmentationFlags {
-    pub const VMA_DEFRAGMENTATION_FLAG_ALGORITHM_FAST_BIT: Self = Self(1);
-    pub const VMA_DEFRAGMENTATION_FLAG_ALGORITHM_BALANCED_BIT: Self = Self(2);
-    pub const VMA_DEFRAGMENTATION_FLAG_ALGORITHM_FULL_BIT: Self = Self(4);
+    pub const FLAG_ALGORITHM_FAST: Self = Self(1);
+    pub const FLAG_ALGORITHM_BALANCED: Self = Self(2);
+    pub const FLAG_ALGORITHM_FULL: Self = Self(4);
     #[doc = "\\brief Use the most roboust algorithm at the cost of time to compute and number of copies to make.\n    Only available when bufferImageGranularity is greater than 1, since it aims to reduce\n    alignment issues between different types of resources.\n    Otherwise falls back to same behavior as #VMA_DEFRAGMENTATION_FLAG_ALGORITHM_FULL_BIT."]
-    pub const VMA_DEFRAGMENTATION_FLAG_ALGORITHM_EXTENSIVE_BIT: Self = Self(8);
+    pub const FLAG_ALGORITHM_EXTENSIVE: Self = Self(8);
     #[doc = "A bit mask to extract only `ALGORITHM` bits from entire set of flags."]
-    pub const VMA_DEFRAGMENTATION_FLAG_ALGORITHM_MASK: Self = Self(15);
-    #[doc = "A bit mask to extract only `ALGORITHM` bits from entire set of flags."]
-    pub const VMA_DEFRAGMENTATION_FLAG_BITS_MAX_ENUM: Self = Self(2147483647);
+    pub const FLAG_ALGORITHM_MASK: Self = Self(15);
 }
 impl ::std::ops::BitOr<DefragmentationFlags> for DefragmentationFlags {
     type Output = Self;
@@ -284,11 +274,11 @@ impl ::std::ops::Not for DefragmentationFlags {
 pub struct DefragmentationMoveOperation(u32);
 impl DefragmentationMoveOperation {
     #[doc = "Buffer/image has been recreated at `dstTmpAllocation`, data has been copied, old buffer/image has been destroyed. `srcAllocation` should be changed to point to the new place. This is the default value set by vmaBeginDefragmentationPass()."]
-    pub const VMA_DEFRAGMENTATION_MOVE_OPERATION_COPY: Self = Self(0);
+    pub const COPY: Self = Self(0);
     #[doc = "Set this value if you cannot move the allocation. New place reserved at `dstTmpAllocation` will be freed. `srcAllocation` will remain unchanged."]
-    pub const VMA_DEFRAGMENTATION_MOVE_OPERATION_IGNORE: Self = Self(1);
+    pub const IGNORE: Self = Self(1);
     #[doc = "Set this value if you decide to abandon the allocation and you destroyed the buffer/image. New place reserved at `dstTmpAllocation` will be freed, along with `srcAllocation`, which will be destroyed."]
-    pub const VMA_DEFRAGMENTATION_MOVE_OPERATION_DESTROY: Self = Self(2);
+    pub const DESTROY: Self = Self(2);
 }
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -296,11 +286,9 @@ impl DefragmentationMoveOperation {
 pub struct VirtualBlockCreateFlags(u32);
 impl VirtualBlockCreateFlags {
     #[doc = "\\brief Enables alternative, linear allocation algorithm in this virtual block.\n\n    Specify this flag to enable linear allocation algorithm, which always creates\n    new allocations after last one and doesn't reuse space from allocations freed in\n    between. It trades memory consumption for simplified algorithm and data\n    structure, which has better performance and uses less memory for metadata.\n\n    By using this flag, you can achieve behavior of free-at-once, stack,\n    ring buffer, and double stack.\n    For details, see documentation chapter \\ref linear_algorithm."]
-    pub const VMA_VIRTUAL_BLOCK_CREATE_LINEAR_ALGORITHM_BIT: Self = Self(1);
+    pub const LINEAR_ALGORITHM: Self = Self(1);
     #[doc = "\\brief Bit mask to extract only `ALGORITHM` bits from entire set of flags."]
-    pub const VMA_VIRTUAL_BLOCK_CREATE_ALGORITHM_MASK: Self = Self(1);
-    #[doc = "\\brief Bit mask to extract only `ALGORITHM` bits from entire set of flags."]
-    pub const VMA_VIRTUAL_BLOCK_CREATE_FLAG_BITS_MAX_ENUM: Self = Self(2147483647);
+    pub const ALGORITHM_MASK: Self = Self(1);
 }
 impl ::std::ops::BitOr<VirtualBlockCreateFlags> for VirtualBlockCreateFlags {
     type Output = Self;
@@ -347,17 +335,15 @@ impl ::std::ops::Not for VirtualBlockCreateFlags {
 pub struct VirtualAllocationCreateFlags(u32);
 impl VirtualAllocationCreateFlags {
     #[doc = "\\brief Allocation will be created from upper stack in a double stack pool.\n\n    This flag is only allowed for virtual blocks created with #VMA_VIRTUAL_BLOCK_CREATE_LINEAR_ALGORITHM_BIT flag."]
-    pub const VMA_VIRTUAL_ALLOCATION_CREATE_UPPER_ADDRESS_BIT: Self = Self(64);
+    pub const UPPER_ADDRESS: Self = Self(64);
     #[doc = "\\brief Allocation strategy that tries to minimize memory usage."]
-    pub const VMA_VIRTUAL_ALLOCATION_CREATE_STRATEGY_MIN_MEMORY_BIT: Self = Self(65536);
+    pub const STRATEGY_MIN_MEMORY: Self = Self(65536);
     #[doc = "\\brief Allocation strategy that tries to minimize allocation time."]
-    pub const VMA_VIRTUAL_ALLOCATION_CREATE_STRATEGY_MIN_TIME_BIT: Self = Self(131072);
+    pub const STRATEGY_MIN_TIME: Self = Self(131072);
     #[doc = "Allocation strategy that chooses always the lowest offset in available space.\n    This is not the most efficient strategy but achieves highly packed data."]
-    pub const VMA_VIRTUAL_ALLOCATION_CREATE_STRATEGY_MIN_OFFSET_BIT: Self = Self(262144);
+    pub const STRATEGY_MIN_OFFSET: Self = Self(262144);
     #[doc = "\\brief A bit mask to extract only `STRATEGY` bits from entire set of flags.\n\n    These strategy flags are binary compatible with equivalent flags in #VmaAllocationCreateFlagBits."]
-    pub const VMA_VIRTUAL_ALLOCATION_CREATE_STRATEGY_MASK: Self = Self(458752);
-    #[doc = "\\brief A bit mask to extract only `STRATEGY` bits from entire set of flags.\n\n    These strategy flags are binary compatible with equivalent flags in #VmaAllocationCreateFlagBits."]
-    pub const VMA_VIRTUAL_ALLOCATION_CREATE_FLAG_BITS_MAX_ENUM: Self = Self(2147483647);
+    pub const STRATEGY_MASK: Self = Self(458752);
 }
 impl ::std::ops::BitOr<VirtualAllocationCreateFlags> for VirtualAllocationCreateFlags {
     type Output = Self;
@@ -426,15 +412,15 @@ pub struct DeviceMemoryCallbacksBuilder<'a> {
     _p: ::std::marker::PhantomData<&'a ()>,
 }
 impl<'a> DeviceMemoryCallbacksBuilder<'a> {
-    pub fn pfn_allocate(mut self, pfn_allocate: PFN_vmaAllocateDeviceMemoryFunction) -> Self {
+    pub fn allocate(mut self, pfn_allocate: PFN_vmaAllocateDeviceMemoryFunction) -> Self {
         self.inner.pfn_allocate = pfn_allocate;
         self
     }
-    pub fn pfn_free(mut self, pfn_free: PFN_vmaFreeDeviceMemoryFunction) -> Self {
+    pub fn free(mut self, pfn_free: PFN_vmaFreeDeviceMemoryFunction) -> Self {
         self.inner.pfn_free = pfn_free;
         self
     }
-    pub fn p_user_data(mut self, p_user_data: *mut ::std::ffi::c_void) -> Self {
+    pub fn user_data(mut self, p_user_data: *mut ::std::ffi::c_void) -> Self {
         self.inner.p_user_data = p_user_data;
         self
     }
@@ -509,28 +495,28 @@ pub struct VulkanFunctionsBuilder<'a> {
     _p: ::std::marker::PhantomData<&'a ()>,
 }
 impl<'a> VulkanFunctionsBuilder<'a> {
-    pub fn vk_get_instance_proc_addr(
+    pub fn get_instance_proc_addr(
         mut self,
         vk_get_instance_proc_addr: Option<vk::PFN_vkGetInstanceProcAddr>,
     ) -> Self {
         self.inner.vk_get_instance_proc_addr = vk_get_instance_proc_addr;
         self
     }
-    pub fn vk_get_device_proc_addr(
+    pub fn get_device_proc_addr(
         mut self,
         vk_get_device_proc_addr: Option<vk::PFN_vkGetDeviceProcAddr>,
     ) -> Self {
         self.inner.vk_get_device_proc_addr = vk_get_device_proc_addr;
         self
     }
-    pub fn vk_get_physical_device_properties(
+    pub fn get_physical_device_properties(
         mut self,
         vk_get_physical_device_properties: Option<vk::PFN_vkGetPhysicalDeviceProperties>,
     ) -> Self {
         self.inner.vk_get_physical_device_properties = vk_get_physical_device_properties;
         self
     }
-    pub fn vk_get_physical_device_memory_properties(
+    pub fn get_physical_device_memory_properties(
         mut self,
         vk_get_physical_device_memory_properties: Option<
             vk::PFN_vkGetPhysicalDeviceMemoryProperties,
@@ -540,91 +526,85 @@ impl<'a> VulkanFunctionsBuilder<'a> {
             vk_get_physical_device_memory_properties;
         self
     }
-    pub fn vk_allocate_memory(
-        mut self,
-        vk_allocate_memory: Option<vk::PFN_vkAllocateMemory>,
-    ) -> Self {
+    pub fn allocate_memory(mut self, vk_allocate_memory: Option<vk::PFN_vkAllocateMemory>) -> Self {
         self.inner.vk_allocate_memory = vk_allocate_memory;
         self
     }
-    pub fn vk_free_memory(mut self, vk_free_memory: Option<vk::PFN_vkFreeMemory>) -> Self {
+    pub fn free_memory(mut self, vk_free_memory: Option<vk::PFN_vkFreeMemory>) -> Self {
         self.inner.vk_free_memory = vk_free_memory;
         self
     }
-    pub fn vk_map_memory(mut self, vk_map_memory: Option<vk::PFN_vkMapMemory>) -> Self {
+    pub fn map_memory(mut self, vk_map_memory: Option<vk::PFN_vkMapMemory>) -> Self {
         self.inner.vk_map_memory = vk_map_memory;
         self
     }
-    pub fn vk_unmap_memory(mut self, vk_unmap_memory: Option<vk::PFN_vkUnmapMemory>) -> Self {
+    pub fn unmap_memory(mut self, vk_unmap_memory: Option<vk::PFN_vkUnmapMemory>) -> Self {
         self.inner.vk_unmap_memory = vk_unmap_memory;
         self
     }
-    pub fn vk_flush_mapped_memory_ranges(
+    pub fn flush_mapped_memory_ranges(
         mut self,
         vk_flush_mapped_memory_ranges: Option<vk::PFN_vkFlushMappedMemoryRanges>,
     ) -> Self {
         self.inner.vk_flush_mapped_memory_ranges = vk_flush_mapped_memory_ranges;
         self
     }
-    pub fn vk_invalidate_mapped_memory_ranges(
+    pub fn invalidate_mapped_memory_ranges(
         mut self,
         vk_invalidate_mapped_memory_ranges: Option<vk::PFN_vkInvalidateMappedMemoryRanges>,
     ) -> Self {
         self.inner.vk_invalidate_mapped_memory_ranges = vk_invalidate_mapped_memory_ranges;
         self
     }
-    pub fn vk_bind_buffer_memory(
+    pub fn bind_buffer_memory(
         mut self,
         vk_bind_buffer_memory: Option<vk::PFN_vkBindBufferMemory>,
     ) -> Self {
         self.inner.vk_bind_buffer_memory = vk_bind_buffer_memory;
         self
     }
-    pub fn vk_bind_image_memory(
+    pub fn bind_image_memory(
         mut self,
         vk_bind_image_memory: Option<vk::PFN_vkBindImageMemory>,
     ) -> Self {
         self.inner.vk_bind_image_memory = vk_bind_image_memory;
         self
     }
-    pub fn vk_get_buffer_memory_requirements(
+    pub fn get_buffer_memory_requirements(
         mut self,
         vk_get_buffer_memory_requirements: Option<vk::PFN_vkGetBufferMemoryRequirements>,
     ) -> Self {
         self.inner.vk_get_buffer_memory_requirements = vk_get_buffer_memory_requirements;
         self
     }
-    pub fn vk_get_image_memory_requirements(
+    pub fn get_image_memory_requirements(
         mut self,
         vk_get_image_memory_requirements: Option<vk::PFN_vkGetImageMemoryRequirements>,
     ) -> Self {
         self.inner.vk_get_image_memory_requirements = vk_get_image_memory_requirements;
         self
     }
-    pub fn vk_create_buffer(mut self, vk_create_buffer: Option<vk::PFN_vkCreateBuffer>) -> Self {
+    pub fn create_buffer(mut self, vk_create_buffer: Option<vk::PFN_vkCreateBuffer>) -> Self {
         self.inner.vk_create_buffer = vk_create_buffer;
         self
     }
-    pub fn vk_destroy_buffer(mut self, vk_destroy_buffer: Option<vk::PFN_vkDestroyBuffer>) -> Self {
+    pub fn destroy_buffer(mut self, vk_destroy_buffer: Option<vk::PFN_vkDestroyBuffer>) -> Self {
         self.inner.vk_destroy_buffer = vk_destroy_buffer;
         self
     }
-    pub fn vk_create_image(mut self, vk_create_image: Option<vk::PFN_vkCreateImage>) -> Self {
+    pub fn create_image(mut self, vk_create_image: Option<vk::PFN_vkCreateImage>) -> Self {
         self.inner.vk_create_image = vk_create_image;
         self
     }
-    pub fn vk_destroy_image(mut self, vk_destroy_image: Option<vk::PFN_vkDestroyImage>) -> Self {
+    pub fn destroy_image(mut self, vk_destroy_image: Option<vk::PFN_vkDestroyImage>) -> Self {
         self.inner.vk_destroy_image = vk_destroy_image;
         self
     }
-    pub fn vk_cmd_copy_buffer(
-        mut self,
-        vk_cmd_copy_buffer: Option<vk::PFN_vkCmdCopyBuffer>,
-    ) -> Self {
+    pub fn cmd_copy_buffer(mut self, vk_cmd_copy_buffer: Option<vk::PFN_vkCmdCopyBuffer>) -> Self {
         self.inner.vk_cmd_copy_buffer = vk_cmd_copy_buffer;
         self
     }
-    pub fn vk_get_buffer_memory_requirements_2_khr(
+    pub fn get_buffer_memory_requirements_2_khr(
         mut self,
         vk_get_buffer_memory_requirements_2_khr: Option<vk::PFN_vkGetBufferMemoryRequirements2>,
     ) -> Self {
@@ -632,28 +612,28 @@ impl<'a> VulkanFunctionsBuilder<'a> {
             vk_get_buffer_memory_requirements_2_khr;
         self
     }
-    pub fn vk_get_image_memory_requirements_2_khr(
+    pub fn get_image_memory_requirements_2_khr(
         mut self,
         vk_get_image_memory_requirements_2_khr: Option<vk::PFN_vkGetImageMemoryRequirements2>,
     ) -> Self {
         self.inner.vk_get_image_memory_requirements_2_khr = vk_get_image_memory_requirements_2_khr;
         self
     }
-    pub fn vk_bind_buffer_memory_2_khr(
+    pub fn bind_buffer_memory_2_khr(
         mut self,
         vk_bind_buffer_memory_2_khr: Option<vk::PFN_vkBindBufferMemory2>,
     ) -> Self {
         self.inner.vk_bind_buffer_memory_2_khr = vk_bind_buffer_memory_2_khr;
         self
     }
-    pub fn vk_bind_image_memory_2_khr(
+    pub fn bind_image_memory_2_khr(
         mut self,
         vk_bind_image_memory_2_khr: Option<vk::PFN_vkBindImageMemory2>,
     ) -> Self {
         self.inner.vk_bind_image_memory_2_khr = vk_bind_image_memory_2_khr;
         self
     }
-    pub fn vk_get_physical_device_memory_properties_2_khr(
+    pub fn get_physical_device_memory_properties_2_khr(
         mut self,
         vk_get_physical_device_memory_properties_2_khr: Option<
             vk::PFN_vkGetPhysicalDeviceMemoryProperties2,
@@ -663,7 +643,7 @@ impl<'a> VulkanFunctionsBuilder<'a> {
             vk_get_physical_device_memory_properties_2_khr;
         self
     }
-    pub fn vk_get_device_buffer_memory_requirements(
+    pub fn get_device_buffer_memory_requirements(
         mut self,
         vk_get_device_buffer_memory_requirements: Option<
             vk::PFN_vkGetDeviceBufferMemoryRequirements,
@@ -673,7 +653,7 @@ impl<'a> VulkanFunctionsBuilder<'a> {
             vk_get_device_buffer_memory_requirements;
         self
     }
-    pub fn vk_get_device_image_memory_requirements(
+    pub fn get_device_image_memory_requirements(
         mut self,
         vk_get_device_image_memory_requirements: Option<vk::PFN_vkGetDeviceImageMemoryRequirements>,
     ) -> Self {
@@ -756,25 +736,25 @@ impl<'a> AllocatorCreateInfoBuilder<'a> {
         self.inner.preferred_large_heap_block_size = preferred_large_heap_block_size;
         self
     }
-    pub fn p_allocation_callbacks(
+    pub fn allocation_callbacks(
         mut self,
         p_allocation_callbacks: &'a vk::AllocationCallbacks,
     ) -> Self {
         self.inner.p_allocation_callbacks = p_allocation_callbacks;
         self
     }
-    pub fn p_device_memory_callbacks(
+    pub fn device_memory_callbacks(
         mut self,
         p_device_memory_callbacks: &'a DeviceMemoryCallbacks,
     ) -> Self {
         self.inner.p_device_memory_callbacks = p_device_memory_callbacks;
         self
     }
-    pub fn p_heap_size_limit(mut self, p_heap_size_limit: &'a [vk::DeviceSize]) -> Self {
+    pub fn heap_size_limit(mut self, p_heap_size_limit: &'a [vk::DeviceSize]) -> Self {
         self.inner.p_heap_size_limit = p_heap_size_limit.as_ptr();
         self
     }
-    pub fn p_vulkan_functions(mut self, p_vulkan_functions: &'a VulkanFunctions) -> Self {
+    pub fn vulkan_functions(mut self, p_vulkan_functions: &'a VulkanFunctions) -> Self {
         self.inner.p_vulkan_functions = p_vulkan_functions;
         self
     }
@@ -786,7 +766,7 @@ impl<'a> AllocatorCreateInfoBuilder<'a> {
         self.inner.vulkan_api_version = vulkan_api_version;
         self
     }
-    pub fn p_type_external_memory_handle_types(
+    pub fn type_external_memory_handle_types(
         mut self,
         p_type_external_memory_handle_types: &'a [vk::ExternalMemoryHandleTypeFlagsKHR],
     ) -> Self {
@@ -1149,7 +1129,7 @@ impl<'a> AllocationCreateInfoBuilder<'a> {
         self.inner.pool = pool;
         self
     }
-    pub fn p_user_data(mut self, p_user_data: *mut ::std::ffi::c_void) -> Self {
+    pub fn user_data(mut self, p_user_data: *mut ::std::ffi::c_void) -> Self {
         self.inner.p_user_data = p_user_data;
         self
     }
@@ -1235,10 +1215,7 @@ impl<'a> PoolCreateInfoBuilder<'a> {
         self.inner.min_allocation_alignment = min_allocation_alignment;
         self
     }
-    pub fn p_memory_allocate_next(
-        mut self,
-        p_memory_allocate_next: *mut ::std::ffi::c_void,
-    ) -> Self {
+    pub fn memory_allocate_next(mut self, p_memory_allocate_next: *mut ::std::ffi::c_void) -> Self {
         self.inner.p_memory_allocate_next = p_memory_allocate_next;
         self
     }
@@ -1306,15 +1283,15 @@ impl<'a> AllocationInfoBuilder<'a> {
         self.inner.size = size;
         self
     }
-    pub fn p_mapped_data(mut self, p_mapped_data: *mut ::std::ffi::c_void) -> Self {
+    pub fn mapped_data(mut self, p_mapped_data: *mut ::std::ffi::c_void) -> Self {
         self.inner.p_mapped_data = p_mapped_data;
         self
     }
-    pub fn p_user_data(mut self, p_user_data: *mut ::std::ffi::c_void) -> Self {
+    pub fn user_data(mut self, p_user_data: *mut ::std::ffi::c_void) -> Self {
         self.inner.p_user_data = p_user_data;
         self
     }
-    pub fn p_name(mut self, p_name: *const ::std::ffi::c_char) -> Self {
+    pub fn name(mut self, p_name: *const ::std::ffi::c_char) -> Self {
         self.inner.p_name = p_name;
         self
     }
@@ -1466,7 +1443,7 @@ pub struct DefragmentationPassMoveInfoBuilder<'a> {
     _p: ::std::marker::PhantomData<&'a ()>,
 }
 impl<'a> DefragmentationPassMoveInfoBuilder<'a> {
-    pub fn p_moves(mut self, p_moves: &'a mut [DefragmentationMove]) -> Self {
+    pub fn moves(mut self, p_moves: &'a mut [DefragmentationMove]) -> Self {
         self.p_moves = p_moves.as_mut_ptr();
         self.inner.move_count = p_moves.len() as _;
         self
@@ -1577,7 +1554,7 @@ impl<'a> VirtualBlockCreateInfoBuilder<'a> {
         self.inner.flags = flags;
         self
     }
-    pub fn p_allocation_callbacks(
+    pub fn allocation_callbacks(
         mut self,
         p_allocation_callbacks: &'a vk::AllocationCallbacks,
     ) -> Self {
@@ -1638,7 +1615,7 @@ impl<'a> VirtualAllocationCreateInfoBuilder<'a> {
         self.inner.flags = flags;
         self
     }
-    pub fn p_user_data(mut self, p_user_data: *mut ::std::ffi::c_void) -> Self {
+    pub fn user_data(mut self, p_user_data: *mut ::std::ffi::c_void) -> Self {
         self.inner.p_user_data = p_user_data;
         self
     }
@@ -1690,7 +1667,7 @@ impl<'a> VirtualAllocationInfoBuilder<'a> {
         self.inner.size = size;
         self
     }
-    pub fn p_user_data(mut self, p_user_data: *mut ::std::ffi::c_void) -> Self {
+    pub fn user_data(mut self, p_user_data: *mut ::std::ffi::c_void) -> Self {
         self.inner.p_user_data = p_user_data;
         self
     }

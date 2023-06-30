@@ -1,4 +1,5 @@
 use clang::{Entity, EntityKind};
+use convert_case::{Case, Casing};
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
 use syn::{LitInt, LitStr};
@@ -22,21 +23,21 @@ pub fn generate_enums(tu: &Entity) -> TokenStream {
 fn generate_enum(e: &VmaEnum) -> TokenStream {
     let name = &e.name;
 
-    let docs = e.docs.as_ref().map(|docs| quote!{ #[doc = #docs] });
+    let docs = e.docs.as_ref().map(|docs| quote! { #[doc = #docs] });
 
     let variants = e.variants.iter().map(|variant| {
         let name = &variant.name;
-        let docs = variant.docs.as_ref().map(|docs| quote!{ #[doc = #docs] });
+        let docs = variant.docs.as_ref().map(|docs| quote! { #[doc = #docs] });
         let val = &variant.value;
 
-        quote!{
+        quote! {
             #docs
             pub const #name: Self = Self(#val);
         }
     });
 
     let bit_impls = e.is_bitfield.then(|| {
-        quote!{
+        quote! {
             impl ::std::ops::BitOr<#name> for #name {
                 type Output = Self;
                 fn bitor(self, rhs: #name) -> Self::Output {
@@ -94,7 +95,11 @@ fn generate_enum(e: &VmaEnum) -> TokenStream {
 }
 
 fn parse_enum(item: &Entity) -> VmaEnum {
-    let name = item.get_name().unwrap().trim_start_matches("Vma").to_string();
+    let name = item
+        .get_name()
+        .unwrap()
+        .trim_start_matches("Vma")
+        .to_string();
     let name = if let Some(name) = name.strip_suffix("Bits") {
         format_ident!("{name}s")
     } else {
@@ -119,8 +124,11 @@ fn parse_enum(item: &Entity) -> VmaEnum {
     let variants = item
         .get_children()
         .iter()
-        .filter(|child| child.get_kind() == EntityKind::EnumConstantDecl)
-        .map(parse_variant)
+        .filter(|child| {
+            child.get_kind() == EntityKind::EnumConstantDecl
+                && !child.get_name().unwrap().ends_with("MAX_ENUM")
+        })
+        .map(|variant| parse_variant(&name.to_string(), variant))
         .collect::<Vec<_>>();
 
     VmaEnum {
@@ -131,8 +139,21 @@ fn parse_enum(item: &Entity) -> VmaEnum {
     }
 }
 
-fn parse_variant(variant: &Entity) -> VmaEnumVariant {
-    let name = format_ident!("{}", variant.get_name().unwrap());
+fn parse_variant(struct_name: &str, variant: &Entity) -> VmaEnumVariant {
+    let prefix = format!(
+        "VMA_{}_",
+        struct_name
+            .trim_end_matches("Flags")
+            .to_case(Case::UpperSnake)
+    );
+    let name = format_ident!(
+        "{}",
+        variant
+            .get_name()
+            .unwrap()
+            .trim_start_matches(&prefix)
+            .trim_end_matches("_BIT")
+    );
 
     let docs = variant
         .get_comment()
@@ -150,11 +171,7 @@ fn parse_variant(variant: &Entity) -> VmaEnumVariant {
     let value = format!("{}", variant.get_enum_constant_value().unwrap().1);
     let value = syn::parse_str(&value).unwrap();
 
-    VmaEnumVariant {
-        name,
-        docs,
-        value,
-    }
+    VmaEnumVariant { name, docs, value }
 }
 
 struct VmaEnum {

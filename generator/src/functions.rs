@@ -223,8 +223,6 @@ fn generate_func(func: VmaFunction) -> TokenStream {
 
 fn parse_function(entity: &Entity) -> VmaFunction {
     let name = entity.get_name().unwrap();
-    println!("Parsing function {name}");
-
     let c_name = syn::parse_str(&name).unwrap();
     let rs_name = syn::parse_str(&name.trim_start_matches("vma").to_case(Case::Snake)).unwrap();
     let docs = entity
@@ -278,7 +276,6 @@ fn parse_function(entity: &Entity) -> VmaFunction {
 
 fn parse_arg(entity: &Entity) -> VmaFunctionArg {
     let name = syn::parse_str(&entity.get_name().unwrap().to_case(Case::Snake)).unwrap();
-    println!("  Parsing arg {name}");
 
     let len = entity
         .get_children()
@@ -308,8 +305,6 @@ fn translate_arg(ty: &Type, len_attr: Option<String>) -> VmaFunctionArgKind {
                 .get_pointee_type()
                 .unwrap()
                 .is_const_qualified(); // weird work around because libclang drops const on const VmaAllocation*
-
-            println!("    Pointer is const? {}", is_const);
 
             let len = len_attr.map(|l| parse_array_len(&l));
 
@@ -347,7 +342,12 @@ pub(crate) fn translate_ffi_arg(ty: &Type) -> syn::Type {
         TypeKind::Pointer => {
             let pointee = ty.get_pointee_type().unwrap();
             let converted = translate_ffi_arg(&pointee);
-            if ty.get_canonical_type().get_pointee_type().unwrap().is_const_qualified() {
+            if ty
+                .get_canonical_type()
+                .get_pointee_type()
+                .unwrap()
+                .is_const_qualified()
+            {
                 syn::parse2(quote! {*const #converted}).unwrap()
             } else {
                 syn::parse2(quote! {*mut #converted}).unwrap()
@@ -372,7 +372,11 @@ pub(crate) fn convert_typedef(name: &str) -> syn::Type {
     if let Some(name) = name.strip_prefix("Vk") {
         syn::parse_str(&format!("vk::{name}")).unwrap()
     } else if let Some(name) = name.strip_prefix("PFN_vk") {
-        syn::parse_str(&format!("Option<vk::PFN_vk{}>", name.trim_end_matches("KHR"))).unwrap()
+        syn::parse_str(&format!(
+            "Option<vk::PFN_vk{}>",
+            name.trim_end_matches("KHR")
+        ))
+        .unwrap()
     } else if let Some(name) = name.strip_prefix("Vma") {
         syn::parse_str(name).unwrap()
     } else if name.starts_with("PFN_vma") {

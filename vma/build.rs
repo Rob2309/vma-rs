@@ -1,4 +1,3 @@
-
 const VMA_FILE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/src/vma.cpp");
 
 const INCLUDES: &[&str] = &[

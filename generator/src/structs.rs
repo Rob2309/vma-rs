@@ -67,83 +67,95 @@ fn generate_builder(item: &VmaStruct) -> TokenStream {
     let name = &item.name;
     let builder_name = format_ident!("{name}Builder");
 
-    let functions = item.fields.iter().filter_map(|field| match &field.kind {
-        VmaStructFieldKind::Normal => {
-            let name = &field.name;
-            let ty = &field.ty;
-            Some(quote!{
-                pub fn #name(mut self, #name: #ty) -> Self {
-                    self.inner.#name = #name;
-                    self
-                }
-            })
-        },
-        VmaStructFieldKind::Len => None,
-        VmaStructFieldKind::Ref(ty) => {
-            let name = &field.name;
-            Some(quote!{
-                pub fn #name(mut self, #name: &'a #ty) -> Self {
-                    self.inner.#name = #name;
-                    self
-                }
-            })
-        },
-        VmaStructFieldKind::RefMut(ty) => {
-            let name = &field.name;
-            Some(quote!{
-                pub fn #name(mut self, #name: &'a mut #ty) -> Self {
-                    self.inner.#name = #name;
-                    self
-                }
-            })
-        },
-        VmaStructFieldKind::ArrayRef(ty, ArrayLen::Adjacent(len)) => {
-            let name = &field.name;
-            Some(quote!{
-                pub fn #name(mut self, #name: &'a [#ty]) -> Self {
-                    self.inner.#name = #name.as_ptr();
-                    self.inner.#len = #name.len() as _;
-                    self
-                }
-            })
-        },
-        VmaStructFieldKind::ArrayRef(ty, _) => {
-            let name = &field.name;
-            Some(quote!{
-                pub fn #name(mut self, #name: &'a [#ty]) -> Self {
-                    self.inner.#name = #name.as_ptr();
-                    self
-                }
-            })
-        },
-        VmaStructFieldKind::ArrayRefMut(ty, ArrayLen::Adjacent(len)) => {
-            let name = &field.name;
-            Some(quote!{
-                pub fn #name(mut self, #name: &'a mut [#ty]) -> Self {
-                    self.#name = #name.as_mut_ptr();
-                    self.inner.#len = #name.len() as _;
-                    self
-                }
-            })
-        },
-        VmaStructFieldKind::ArrayRefMut(ty, _) => {
-            let name = &field.name;
-            Some(quote!{
-                pub fn #name(mut self, #name: &'a mut [#ty]) -> Self {
-                    self.inner.#name = #name.as_mut_ptr();
-                    self
-                }
-            })
-        },
-        VmaStructFieldKind::Array(ty, len) => {
-            let name = &field.name;
-            Some(quote!{
-                pub fn #name(mut self, #name: [#ty; #len]) -> Self {
-                    self.inner.#name = #name;
-                    self
-                }
-            })
-        },
+    let functions = item.fields.iter().filter_map(|field| {
+        let func_name = format_ident!(
+            "{}",
+            field
+                .name
+                .to_string()
+                .trim_start_matches("p_")
+                .trim_start_matches("pp_")
+                .trim_start_matches("pfn_")
+                .trim_start_matches("vk_")
+        );
+        match &field.kind {
+            VmaStructFieldKind::Normal => {
+                let name = &field.name;
+                let ty = &field.ty;
+                Some(quote! {
+                    pub fn #func_name(mut self, #name: #ty) -> Self {
+                        self.inner.#name = #name;
+                        self
+                    }
+                })
+            }
+            VmaStructFieldKind::Len => None,
+            VmaStructFieldKind::Ref(ty) => {
+                let name = &field.name;
+                Some(quote! {
+                    pub fn #func_name(mut self, #name: &'a #ty) -> Self {
+                        self.inner.#name = #name;
+                        self
+                    }
+                })
+            }
+            VmaStructFieldKind::RefMut(ty) => {
+                let name = &field.name;
+                Some(quote! {
+                    pub fn #func_name(mut self, #name: &'a mut #ty) -> Self {
+                        self.inner.#name = #name;
+                        self
+                    }
+                })
+            }
+            VmaStructFieldKind::ArrayRef(ty, ArrayLen::Adjacent(len)) => {
+                let name = &field.name;
+                Some(quote! {
+                    pub fn #func_name(mut self, #name: &'a [#ty]) -> Self {
+                        self.inner.#name = #name.as_ptr();
+                        self.inner.#len = #name.len() as _;
+                        self
+                    }
+                })
+            }
+            VmaStructFieldKind::ArrayRef(ty, _) => {
+                let name = &field.name;
+                Some(quote! {
+                    pub fn #func_name(mut self, #name: &'a [#ty]) -> Self {
+                        self.inner.#name = #name.as_ptr();
+                        self
+                    }
+                })
+            }
+            VmaStructFieldKind::ArrayRefMut(ty, ArrayLen::Adjacent(len)) => {
+                let name = &field.name;
+                Some(quote! {
+                    pub fn #func_name(mut self, #name: &'a mut [#ty]) -> Self {
+                        self.#name = #name.as_mut_ptr();
+                        self.inner.#len = #name.len() as _;
+                        self
+                    }
+                })
+            }
+            VmaStructFieldKind::ArrayRefMut(ty, _) => {
+                let name = &field.name;
+                Some(quote! {
+                    pub fn #func_name(mut self, #name: &'a mut [#ty]) -> Self {
+                        self.inner.#name = #name.as_mut_ptr();
+                        self
+                    }
+                })
+            }
+            VmaStructFieldKind::Array(ty, len) => {
+                let name = &field.name;
+                Some(quote! {
+                    pub fn #func_name(mut self, #name: [#ty; #len]) -> Self {
+                        self.inner.#name = #name;
+                        self
+                    }
+                })
+            }
+        }
     });
 
     quote! {
