@@ -1,6 +1,6 @@
 [submodule "vma/vendor/vma"]
 	path = vma/vendor/vma
-	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator
+	url = https://github.com/Rob2309/VulkanMemoryAllocator
 [submodule "vma/vendor/vk-headers"]
 	path = vma/vendor/vk-headers
 	url = https://github.com/KhronosGroup/Vulkan-Headers

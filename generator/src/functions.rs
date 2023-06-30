@@ -2,7 +2,7 @@ use clang::{Entity, EntityKind, Type, TypeKind};
 use convert_case::{Case, Casing};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
-use syn::{Ident, LitStr};
+use syn::{Ident, LitStr, Token};
 
 pub fn generate_functions(tu: &Entity) -> TokenStream {
     let mut vma_functions = Vec::new();
@@ -41,6 +41,10 @@ fn generate_func(func: VmaFunction) -> TokenStream {
             }
             VmaFunctionArgKind::Ref(ref_ty) => Some(quote! {#name: &#ref_ty}),
             VmaFunctionArgKind::InArray(array_ty, _) => Some(quote! {#name: &[#array_ty]}),
+            VmaFunctionArgKind::PNext(trait_name, is_const) => {
+                let mutability = (!is_const).then(|| quote! {mut});
+                Some(quote! { #name: &#mutability impl #trait_name })
+            }
             _ => None,
         }
     });
@@ -140,6 +144,8 @@ fn generate_func(func: VmaFunction) -> TokenStream {
             let name = &arg.name;
             match &arg.rs_arg_kind {
                 VmaFunctionArgKind::Normal => quote! {#name},
+                VmaFunctionArgKind::PNext(_, false) => quote! { #name as *mut _ as *mut _ },
+                VmaFunctionArgKind::PNext(_, true) => quote! { #name as *const _ as *const _ },
                 VmaFunctionArgKind::Len => {
                     let first_array = &func
                         .args
@@ -280,12 +286,33 @@ fn parse_arg(entity: &Entity) -> VmaFunctionArg {
     let len = entity
         .get_children()
         .iter()
-        .find(|c| c.get_kind() == EntityKind::AnnotateAttr)
-        .map(|a| a.get_display_name().unwrap());
+        .find(|c| {
+            c.get_kind() == EntityKind::AnnotateAttr
+                && c.get_display_name().unwrap().starts_with("LEN:")
+        })
+        .map(|a| {
+            a.get_display_name()
+                .unwrap()
+                .trim_start_matches("LEN:")
+                .to_string()
+        });
+    let extends = entity
+        .get_children()
+        .iter()
+        .find(|c| {
+            c.get_kind() == EntityKind::AnnotateAttr
+                && c.get_display_name().unwrap().starts_with("VK_STRUCT:")
+        })
+        .map(|a| {
+            a.get_display_name()
+                .unwrap()
+                .trim_start_matches("VK_STRUCT:")
+                .to_string()
+        });
     let ty = entity.get_type().unwrap();
 
     let ffi_type = translate_ffi_arg(&ty);
-    let rs_arg_kind = translate_arg(&ty, len);
+    let rs_arg_kind = translate_arg(&ty, len, extends);
 
     VmaFunctionArg {
         name,
@@ -294,7 +321,11 @@ fn parse_arg(entity: &Entity) -> VmaFunctionArg {
     }
 }
 
-fn translate_arg(ty: &Type, len_attr: Option<String>) -> VmaFunctionArgKind {
+fn translate_arg(
+    ty: &Type,
+    len_attr: Option<String>,
+    extends_attr: Option<String>,
+) -> VmaFunctionArgKind {
     match ty.get_kind() {
         TypeKind::Typedef => VmaFunctionArgKind::Normal,
         TypeKind::Pointer => {
@@ -309,9 +340,34 @@ fn translate_arg(ty: &Type, len_attr: Option<String>) -> VmaFunctionArgKind {
             let len = len_attr.map(|l| parse_array_len(&l));
 
             match (is_const, pointee.get_kind(), len) {
-                (false, TypeKind::Void, _) => VmaFunctionArgKind::Normal, // exception for *mut c_void
+                (false, TypeKind::Void, _) => {
+                    if let Some(extends_attr) = extends_attr {
+                        let trait_name = format!(
+                            "vk::Extends{}",
+                            extends_attr
+                                .trim_start_matches("Vk")
+                                .trim_end_matches("KHR")
+                        );
+                        VmaFunctionArgKind::PNext(syn::parse_str(&trait_name).unwrap(), false)
+                    } else {
+                        VmaFunctionArgKind::Normal
+                    }
+                } // exception for *mut c_void
                 (false, _, Some(len)) => VmaFunctionArgKind::OutArray(converted_pointee, len),
                 (false, _, None) => VmaFunctionArgKind::Out(converted_pointee),
+                (true, TypeKind::Void, _) => {
+                    if let Some(extends_attr) = extends_attr {
+                        let trait_name = format!(
+                            "vk::Extends{}",
+                            extends_attr
+                                .trim_start_matches("Vk")
+                                .trim_end_matches("KHR")
+                        );
+                        VmaFunctionArgKind::PNext(syn::parse_str(&trait_name).unwrap(), true)
+                    } else {
+                        panic!("const void* unexpected");
+                    }
+                }
                 (true, TypeKind::CharS | TypeKind::CharU, _) => VmaFunctionArgKind::Normal, // exception for *const c_char
                 (true, _, Some(len)) => VmaFunctionArgKind::InArray(converted_pointee, len),
                 (true, _, None) => VmaFunctionArgKind::Ref(converted_pointee),
@@ -410,6 +466,7 @@ struct VmaFunctionArg {
 enum VmaFunctionArgKind {
     Normal,
     Len,
+    PNext(syn::Type, bool),
     Ref(syn::Type),
     Out(syn::Type),
     OutArray(syn::Type, ArrayLen),
