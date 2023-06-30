@@ -18,3 +18,4 @@ let info = vma::AllocatorCreateInfo::builder()
 ```
 
 While certain convenience features are implemented, all functions are unsafe and operate on raw `Vma` and `Vk` handles, just like in `ash`.
+For the most part, functions will generally behave as one would expect from identical `ash` functions.
