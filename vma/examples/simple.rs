@@ -1,7 +1,4 @@
 use ash::vk;
-use vma::AllocatorCreateFlags;
-
-
 
 fn main() {
     let entry = unsafe { ash::Entry::load().unwrap() };
@@ -16,6 +13,8 @@ fn main() {
         }
     };
 
+    let physical_device = unsafe{instance.enumerate_physical_devices().unwrap()[0]};
+
     let device = {
         let prio = [1.0];
         let queues = [
@@ -27,7 +26,7 @@ fn main() {
         let info = vk::DeviceCreateInfo::builder()
             .queue_create_infos(&queues);
         unsafe {
-            instance.create_device(instance.enumerate_physical_devices().unwrap()[0], &info, None).unwrap()
+            instance.create_device(physical_device, &info, None).unwrap()
         }
     };
 
@@ -38,9 +37,28 @@ fn main() {
         let info = vma::AllocatorCreateInfo::builder()
             .device(device.handle())
             .instance(instance.handle())
+            .physical_device(physical_device)
             .p_vulkan_functions(&functions);
         unsafe {
             vma::create_allocator(&info).unwrap()
         }
     };
+
+    let (buffer, alloc, _info) = {
+        let buffer_info = vk::BufferCreateInfo::builder()
+            .sharing_mode(vk::SharingMode::EXCLUSIVE)
+            .size(1024)
+            .usage(vk::BufferUsageFlags::VERTEX_BUFFER);
+        let alloc_info = vma::AllocationCreateInfo::builder()
+            .usage(vma::MemoryUsage::VMA_MEMORY_USAGE_AUTO);
+
+        unsafe {
+            vma::create_buffer(allocator, &buffer_info, &alloc_info).unwrap()
+        }
+    };
+
+    unsafe {
+        vma::destroy_buffer(allocator, buffer, alloc);
+        vma::destroy_allocator(allocator);
+    }
 }

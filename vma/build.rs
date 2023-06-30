@@ -11,8 +11,6 @@ fn main() {
         .file(VMA_FILE)
         .cpp(true)
         .includes(INCLUDES)
-        .warnings(false)
-        .extra_warnings(false)
-        .flag("-Wno-everything")
+        .flag_if_supported("-Wno-everything")
         .compile("vma");
 }
