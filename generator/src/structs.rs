@@ -201,7 +201,7 @@ fn parse_struct(item: &Entity) -> VmaStruct {
                 .trim_end_matches('/')
                 .trim_end_matches('*')
                 .trim()
-                .to_string()
+                .replace("    ", " ")
         })
         .map(|comment| syn::parse2::<LitStr>(quote! {#comment}).unwrap());
 
@@ -241,7 +241,7 @@ fn parse_field(field: &Entity) -> VmaStructField {
                 .trim_end_matches('/')
                 .trim_end_matches('*')
                 .trim()
-                .to_string()
+                .replace("    ", " ")
         })
         .map(|comment| syn::parse2::<LitStr>(quote! {#comment}).unwrap());
 

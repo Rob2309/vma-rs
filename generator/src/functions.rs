@@ -234,7 +234,7 @@ fn parse_function(entity: &Entity) -> VmaFunction {
                 .trim_end_matches('/')
                 .trim_end_matches('*')
                 .trim()
-                .to_string()
+                .replace("    ", " ")
         })
         .map(|comment| syn::parse2::<LitStr>(quote! {#comment}).unwrap());
 

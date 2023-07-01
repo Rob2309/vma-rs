@@ -117,7 +117,7 @@ fn parse_enum(item: &Entity) -> VmaEnum {
                 .trim_end_matches('/')
                 .trim_end_matches('*')
                 .trim()
-                .to_string()
+                .replace("    ", " ")
         })
         .map(|comment| syn::parse2::<LitStr>(quote! {#comment}).unwrap());
 
@@ -164,7 +164,7 @@ fn parse_variant(struct_name: &str, variant: &Entity) -> VmaEnumVariant {
                 .trim_end_matches('/')
                 .trim_end_matches('*')
                 .trim()
-                .to_string()
+                .replace("    ", " ")
         })
         .map(|comment| syn::parse2::<LitStr>(quote! {#comment}).unwrap());
 
