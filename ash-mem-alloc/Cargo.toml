@@ -15,7 +15,7 @@ exclude = [
     "vendor/**", 
     "!vendor/vma/include/**",
     "!vendor/vma/LICENSE.txt",
-    "!vendor/vk-headers/include/vulkan/**",
+    "!vendor/vk-headers/include/**",
     "!vendor/vk-headers/LICENSE.txt",
 ]
 
