@@ -1,4 +1,6 @@
 use ash::vk;
+use ash_mem_alloc::vma;
+use std::ffi::c_void;
 
 fn main() {
     let entry = unsafe { ash::Entry::load().unwrap() };
@@ -26,6 +28,9 @@ fn main() {
     };
 
     let allocator = {
+        let callbacks = vma::DeviceMemoryCallbacks::builder()
+            .allocate(Some(allocate_cb))
+            .free(Some(free_cb));
         let functions = vma::VulkanFunctions::builder()
             .get_instance_proc_addr(Some(entry.static_fn().get_instance_proc_addr))
             .get_device_proc_addr(Some(instance.fp_v1_0().get_device_proc_addr));
@@ -33,7 +38,8 @@ fn main() {
             .device(device.handle())
             .instance(instance.handle())
             .physical_device(physical_device)
-            .vulkan_functions(&functions);
+            .vulkan_functions(&functions)
+            .device_memory_callbacks(&callbacks);
         unsafe { vma::create_allocator(&info).unwrap() }
     };
 
@@ -51,4 +57,24 @@ fn main() {
         vma::destroy_buffer(allocator, buffer, alloc);
         vma::destroy_allocator(allocator);
     }
+}
+
+extern "system" fn allocate_cb(
+    allocator: vma::Allocator,
+    memory_type: u32,
+    memory: vk::DeviceMemory,
+    size: vk::DeviceSize,
+    user_data: *mut c_void,
+) {
+    println!("Allocating: allocator={allocator}, memory_type={memory_type}, memory={memory:p}, size={size}, user_data:{user_data:p}");
+}
+
+extern "system" fn free_cb(
+    allocator: vma::Allocator,
+    memory_type: u32,
+    memory: vk::DeviceMemory,
+    size: vk::DeviceSize,
+    user_data: *mut c_void,
+) {
+    println!("Freeing: allocator={allocator}, memory_type={memory_type}, memory={memory:p}, size={size}, user_data:{user_data:p}");
 }

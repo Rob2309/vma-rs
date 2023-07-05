@@ -1,9 +1,12 @@
-use clang::{Entity, EntityKind, Type, TypeKind};
+use clang::{Entity, EntityKind, TypeKind};
 use convert_case::{Case, Casing};
 use proc_macro2::TokenStream;
-use quote::{format_ident, quote};
-use syn::{Ident, LitStr, Token};
+use quote::{format_ident, quote, ToTokens};
+use syn::{Ident, LitStr};
 
+use crate::parsing::{translate_ffi_type, translate_var, ArrayLen, VmaVarKind};
+
+/// Generates a rust function for every vma function
 pub fn generate_functions(tu: &Entity) -> TokenStream {
     let mut vma_functions = Vec::new();
 
@@ -26,41 +29,48 @@ pub fn generate_functions(tu: &Entity) -> TokenStream {
     res
 }
 
+/// Generates rust bindings for a single parsed vma function
 fn generate_func(func: VmaFunction) -> TokenStream {
     let docs = func.docs.map(|doc| quote! {#[doc = #doc]});
     let rs_name = func.rs_name;
     let c_name = func.c_name;
 
+    // generate high-level argument declarations for the outer rust function.
     let rs_args = func.args.iter().filter_map(|arg| {
         let name = &arg.name;
 
         match &arg.rs_arg_kind {
-            VmaFunctionArgKind::Normal => {
+            VmaVarKind::Normal => {
                 let ty = &arg.ffi_type;
                 Some(quote! {#name: #ty})
             }
-            VmaFunctionArgKind::Ref(ref_ty) => Some(quote! {#name: &#ref_ty}),
-            VmaFunctionArgKind::InArray(array_ty, _) => Some(quote! {#name: &[#array_ty]}),
-            VmaFunctionArgKind::PNext(trait_name, is_const) => {
+            VmaVarKind::PNext(trait_name, is_const) => {
                 let mutability = (!is_const).then(|| quote! {mut});
                 Some(quote! { #name: &#mutability impl #trait_name })
             }
+            VmaVarKind::Ref(ref_ty) => Some(quote! {#name: &#ref_ty}),
+            VmaVarKind::Array(array_ty, _) => Some(quote! {#name: &[#array_ty]}),
+            VmaVarKind::Str => Some(quote! {#name: Option<&::std::ffi::CStr>}),
             _ => None,
         }
     });
+    // generate low-level argument declarations for the inner ffi function.
     let c_args = func.args.iter().map(|arg| {
         let name = &arg.name;
         let ty = &arg.ffi_type;
         quote! {#name: #ty}
     });
 
+    // generate return type declaration for the outer function.
     let return_type = {
+        // collect arguments that are used for returning results
         let return_args = func
             .args
             .iter()
             .filter_map(|arg| match &arg.rs_arg_kind {
-                VmaFunctionArgKind::Out(ty) => Some(quote! { #ty }),
-                VmaFunctionArgKind::OutArray(ty, _) => Some(quote! { Vec<#ty> }),
+                VmaVarKind::RefMut(ty) => Some(quote! { #ty }),
+                VmaVarKind::ArrayMut(ty, _) => Some(quote! { Vec<#ty> }),
+                VmaVarKind::StrMut => Some(quote! { Option<::std::ffi::CString> }),
                 _ => None,
             })
             .collect::<Vec<_>>();
@@ -72,6 +82,7 @@ fn generate_func(func: VmaFunction) -> TokenStream {
             quote! { (#(#return_args),*) }
         };
 
+        // create final return type, either Result<..., vk::Result> or just the return_args
         if func.returns_result {
             quote! { -> Result<#return_args_tuple, vk::Result> }
         } else if !return_args.is_empty() {
@@ -82,28 +93,32 @@ fn generate_func(func: VmaFunction) -> TokenStream {
             quote! {}
         }
     };
+    // generate the low-level return type of the inner ffi function.
+    // either nothing or "-> vk::Result"
     let c_return_type = if func.returns_result {
         quote! { -> vk::Result }
     } else {
         quote! {}
     };
 
+    // generate the temporary variables that will be passed for the return arguments
     let buffers = func.args.iter().filter_map(|arg| {
         let name = &arg.name;
         match &arg.rs_arg_kind {
-            VmaFunctionArgKind::Out(_) => Some(quote! {
+            VmaVarKind::RefMut(_) => Some(quote! {
                 let mut #name = ::std::mem::zeroed();
             }),
-            VmaFunctionArgKind::OutArray(_, len) => {
+            VmaVarKind::ArrayMut(_, len) => {
                 let len_field_name = format_ident!("{name}_len");
 
                 let len_init = match len {
                     ArrayLen::Adjacent(len_field) => {
+                        // find the first array argument that uses this length field
                         let first_array = &func
                             .args
                             .iter()
                             .find(|arg| {
-                                if let VmaFunctionArgKind::InArray(_, ArrayLen::Adjacent(len)) =
+                                if let VmaVarKind::Array(_, ArrayLen::Adjacent(len)) =
                                     &arg.rs_arg_kind
                                 {
                                     len == len_field
@@ -113,7 +128,8 @@ fn generate_func(func: VmaFunction) -> TokenStream {
                             })
                             .unwrap()
                             .name;
-
+                        
+                        // use this array to deduce length field
                         quote! {let #len_field_name = #first_array.len();}
                     }
                     ArrayLen::MemoryHeapCount => quote! {
@@ -129,30 +145,33 @@ fn generate_func(func: VmaFunction) -> TokenStream {
                     let mut #name = vec![::std::mem::zeroed(); #len_field_name as _];
                 })
             }
+            VmaVarKind::StrMut => Some(quote! { let mut #name = ::std::mem::zeroed(); }),
             _ => None,
         }
     });
 
+    // generate code for passing the high-level arguments to the low-level ffi function
     let c_call = {
+        // if the ffi function returns a result, store it
         let catch_result = if func.returns_result {
             quote! {let result = }
         } else {
             quote! {}
         };
 
+        // generate the code that passes the arguments
         let pass_args = func.args.iter().map(|arg| {
             let name = &arg.name;
             match &arg.rs_arg_kind {
-                VmaFunctionArgKind::Normal => quote! {#name},
-                VmaFunctionArgKind::PNext(_, false) => quote! { #name as *mut _ as *mut _ },
-                VmaFunctionArgKind::PNext(_, true) => quote! { #name as *const _ as *const _ },
-                VmaFunctionArgKind::Len => {
+                VmaVarKind::PNext(_, false) => quote! { #name as *mut _ as *mut _ },
+                VmaVarKind::PNext(_, true) => quote! { #name as *const _ as *const _ },
+                VmaVarKind::Normal => quote! {#name},
+                VmaVarKind::Len => {
                     let first_array = &func
                         .args
                         .iter()
                         .find(|arg| {
-                            if let VmaFunctionArgKind::InArray(_, ArrayLen::Adjacent(len)) =
-                                &arg.rs_arg_kind
+                            if let VmaVarKind::Array(_, ArrayLen::Adjacent(len)) = &arg.rs_arg_kind
                             {
                                 len == name
                             } else {
@@ -166,28 +185,44 @@ fn generate_func(func: VmaFunction) -> TokenStream {
                         #first_array.len() as _
                     }
                 }
-                VmaFunctionArgKind::Ref(_) => quote! {#name},
-                VmaFunctionArgKind::Out(_) => quote! {&mut #name},
-                VmaFunctionArgKind::OutArray(_, _) => quote! {#name.as_mut_ptr()},
-                VmaFunctionArgKind::InArray(_, _) => quote! {#name.as_ptr()},
+                VmaVarKind::Ref(_) => {
+                    quote! {#name}
+                }
+                VmaVarKind::RefMut(_) => quote! {&mut #name},
+                VmaVarKind::ArrayMut(_, _) => quote! {#name.as_mut_ptr()},
+                VmaVarKind::Array(_, _) => quote! {#name.as_ptr()},
+                VmaVarKind::Str => quote! { #name.map_or(::std::ptr::null(), |s| s.as_ptr())  },
+                VmaVarKind::StrMut => quote! { &mut #name },
+                VmaVarKind::ConstantArray(_, _) => panic!("Arrays not supported as arguments"),
             }
         });
 
+        // final ffi function call
         quote! {
             #catch_result #c_name(#(#pass_args),*);
         }
     };
 
+    // generate the final high-level return statement if needed
     let return_statement = {
+        // collect all arguments used for returning results
         let arg_returns = func
             .args
             .iter()
-            .filter_map(|arg| match &arg.rs_arg_kind {
-                VmaFunctionArgKind::Out(_) | VmaFunctionArgKind::OutArray(_, _) => Some(&arg.name),
-                _ => None,
+            .filter_map(|arg| {
+                let name = &arg.name;
+                match &arg.rs_arg_kind {
+                    VmaVarKind::RefMut(_) | VmaVarKind::ArrayMut(_, _) => {
+                        Some(name.to_token_stream())
+                    }
+                    VmaVarKind::StrMut => {
+                        Some(quote! { if !#name.is_null() { Some(::std::ffi::CStr::from_ptr(#name).to_owned()) } else { None } })
+                    }
+                    _ => None,
+                }
             })
             .collect::<Vec<_>>();
-
+        
         let arg_returns_tuple = if arg_returns.len() == 1 {
             quote! { #(#arg_returns)* }
         } else if arg_returns.is_empty() {
@@ -200,6 +235,7 @@ fn generate_func(func: VmaFunction) -> TokenStream {
             quote! { (#(#arg_returns),*) }
         };
 
+        // return either a Result<..., vk::Result> or the return arguments directly
         if func.returns_result {
             quote! {
                 if result == vk::Result::SUCCESS {
@@ -213,6 +249,7 @@ fn generate_func(func: VmaFunction) -> TokenStream {
         }
     };
 
+    // final function definition
     quote! {
         #docs
         pub unsafe fn #rs_name(#(#rs_args),*) #return_type {
@@ -227,9 +264,11 @@ fn generate_func(func: VmaFunction) -> TokenStream {
     }
 }
 
+/// Parses the libclang definition of a vma function
 fn parse_function(entity: &Entity) -> VmaFunction {
     let name = entity.get_name().unwrap();
     let c_name = syn::parse_str(&name).unwrap();
+    // remove "vma" prefix and convert to snake_case
     let rs_name = syn::parse_str(&name.trim_start_matches("vma").to_case(Case::Snake)).unwrap();
     let docs = entity
         .get_comment()
@@ -240,10 +279,11 @@ fn parse_function(entity: &Entity) -> VmaFunction {
                 .trim_end_matches('/')
                 .trim_end_matches('*')
                 .trim()
-                .to_string()
+                .replace("    ", " ")
         })
         .map(|comment| syn::parse2::<LitStr>(quote! {#comment}).unwrap());
 
+    // parse all parameters
     let mut args = entity
         .get_children()
         .iter()
@@ -251,20 +291,19 @@ fn parse_function(entity: &Entity) -> VmaFunction {
         .map(parse_arg)
         .collect::<Vec<_>>();
 
+    // check which fields are used to describe array lengths and mark them accordingly
     let len_fields = args
         .iter()
         .filter_map(|arg| match &arg.rs_arg_kind {
-            VmaFunctionArgKind::OutArray(_, ArrayLen::Adjacent(len_field))
-            | VmaFunctionArgKind::InArray(_, ArrayLen::Adjacent(len_field)) => {
-                Some(len_field.clone())
-            }
+            VmaVarKind::ArrayMut(_, ArrayLen::Adjacent(len_field))
+            | VmaVarKind::Array(_, ArrayLen::Adjacent(len_field)) => Some(len_field.clone()),
             _ => None,
         })
         .collect::<Vec<_>>();
     for arg in &mut args {
-        if let VmaFunctionArgKind::Normal = &arg.rs_arg_kind {
+        if let VmaVarKind::Normal = &arg.rs_arg_kind {
             if len_fields.contains(&arg.name) {
-                arg.rs_arg_kind = VmaFunctionArgKind::Len;
+                arg.rs_arg_kind = VmaVarKind::Len;
             }
         }
     }
@@ -280,9 +319,15 @@ fn parse_function(entity: &Entity) -> VmaFunction {
     }
 }
 
+/// Parses the libclang definition of a single vma function parameter
 fn parse_arg(entity: &Entity) -> VmaFunctionArg {
+    // convert param name to snake_case
     let name = syn::parse_str(&entity.get_name().unwrap().to_case(Case::Snake)).unwrap();
 
+    // Try to find a VMA_LEN_IF_NOT_NULL(...) attribute, which describes
+    // the required length for a given array pointer.
+    // The generator uses #define VMA_LEN_IF_NOT_NULL(len) __attribute__((annotate("LEN:"#len)))
+    // which means we have to look for a AnnotateAttr that starts with "LEN:"
     let len = entity
         .get_children()
         .iter()
@@ -311,8 +356,8 @@ fn parse_arg(entity: &Entity) -> VmaFunctionArg {
         });
     let ty = entity.get_type().unwrap();
 
-    let ffi_type = translate_ffi_arg(&ty);
-    let rs_arg_kind = translate_arg(&ty, len, extends);
+    let ffi_type = translate_ffi_type(&ty);
+    let rs_arg_kind = translate_var(&ty, len, extends);
 
     VmaFunctionArg {
         name,
@@ -321,154 +366,27 @@ fn parse_arg(entity: &Entity) -> VmaFunctionArg {
     }
 }
 
-fn translate_arg(
-    ty: &Type,
-    len_attr: Option<String>,
-    extends_attr: Option<String>,
-) -> VmaFunctionArgKind {
-    match ty.get_kind() {
-        TypeKind::Typedef => VmaFunctionArgKind::Normal,
-        TypeKind::Pointer => {
-            let pointee = ty.get_pointee_type().unwrap();
-            let converted_pointee = translate_ffi_arg(&pointee);
-            let is_const = ty
-                .get_canonical_type()
-                .get_pointee_type()
-                .unwrap()
-                .is_const_qualified(); // weird work around because libclang drops const on const VmaAllocation*
-
-            let len = len_attr.map(|l| parse_array_len(&l));
-
-            match (is_const, pointee.get_kind(), len) {
-                (false, TypeKind::Void, _) => {
-                    if let Some(extends_attr) = extends_attr {
-                        let trait_name = format!(
-                            "vk::Extends{}",
-                            extends_attr
-                                .trim_start_matches("Vk")
-                                .trim_end_matches("KHR")
-                        );
-                        VmaFunctionArgKind::PNext(syn::parse_str(&trait_name).unwrap(), false)
-                    } else {
-                        VmaFunctionArgKind::Normal
-                    }
-                } // exception for *mut c_void
-                (false, _, Some(len)) => VmaFunctionArgKind::OutArray(converted_pointee, len),
-                (false, _, None) => VmaFunctionArgKind::Out(converted_pointee),
-                (true, TypeKind::Void, _) => {
-                    if let Some(extends_attr) = extends_attr {
-                        let trait_name = format!(
-                            "vk::Extends{}",
-                            extends_attr
-                                .trim_start_matches("Vk")
-                                .trim_end_matches("KHR")
-                        );
-                        VmaFunctionArgKind::PNext(syn::parse_str(&trait_name).unwrap(), true)
-                    } else {
-                        panic!("const void* unexpected");
-                    }
-                }
-                (true, TypeKind::CharS | TypeKind::CharU, _) => VmaFunctionArgKind::Normal, // exception for *const c_char
-                (true, _, Some(len)) => VmaFunctionArgKind::InArray(converted_pointee, len),
-                (true, _, None) => VmaFunctionArgKind::Ref(converted_pointee),
-            }
-        }
-        _ => panic!("Unsupported arg type: {}", ty.get_display_name()),
-    }
-}
-
-pub(crate) fn parse_array_len(val: &str) -> ArrayLen {
-    match val {
-        "\"VkPhysicalDeviceMemoryProperties::memoryHeapCount\"" => ArrayLen::MemoryHeapCount,
-        "\"VkPhysicalDeviceMemoryProperties::memoryTypeCount\"" => ArrayLen::MemoryTypeCount,
-        _ => ArrayLen::Adjacent(syn::parse_str(&val.to_case(Case::Snake)).unwrap()),
-    }
-}
-
-#[derive(Clone)]
-pub(crate) enum ArrayLen {
-    Adjacent(Ident),
-    MemoryHeapCount,
-    MemoryTypeCount,
-}
-
-pub(crate) fn translate_ffi_arg(ty: &Type) -> syn::Type {
-    match ty.get_kind() {
-        TypeKind::Typedef => convert_typedef(&ty.get_typedef_name().unwrap()),
-        TypeKind::Pointer => {
-            let pointee = ty.get_pointee_type().unwrap();
-            let converted = translate_ffi_arg(&pointee);
-            if ty
-                .get_canonical_type()
-                .get_pointee_type()
-                .unwrap()
-                .is_const_qualified()
-            {
-                syn::parse2(quote! {*const #converted}).unwrap()
-            } else {
-                syn::parse2(quote! {*mut #converted}).unwrap()
-            }
-        }
-        TypeKind::ConstantArray => {
-            let content_type = ty.get_element_type().unwrap();
-            let converted = translate_ffi_arg(&content_type);
-
-            let len = ty.get_size().unwrap();
-
-            syn::parse2(quote! { [#converted; #len] }).unwrap()
-        }
-        TypeKind::CharS | TypeKind::CharU => syn::parse2(quote! {::std::ffi::c_char}).unwrap(),
-        TypeKind::Void => syn::parse2(quote! {::std::ffi::c_void}).unwrap(),
-        TypeKind::Float => syn::parse2(quote! { f32 }).unwrap(),
-        _ => panic!("Unsupported arg type: {}", ty.get_display_name()),
-    }
-}
-
-pub(crate) fn convert_typedef(name: &str) -> syn::Type {
-    if let Some(name) = name.strip_prefix("Vk") {
-        syn::parse_str(&format!("vk::{name}")).unwrap()
-    } else if let Some(name) = name.strip_prefix("PFN_vk") {
-        syn::parse_str(&format!(
-            "Option<vk::PFN_vk{}>",
-            name.trim_end_matches("KHR")
-        ))
-        .unwrap()
-    } else if let Some(name) = name.strip_prefix("Vma") {
-        syn::parse_str(name).unwrap()
-    } else if name.starts_with("PFN_vma") {
-        syn::parse_str(name).unwrap()
-    } else {
-        let converted = match name {
-            "uint32_t" => "u32",
-            "size_t" => "usize",
-            _ => panic!("Unknown typedef: {name}"),
-        };
-        syn::parse_str(converted).unwrap()
-    }
-}
-
+/// Description of a vma function
 struct VmaFunction {
+    /// name to use for inner ffi function
     c_name: Ident,
+    /// name to use for outer high-level function
     rs_name: Ident,
+    /// documentation string
     docs: Option<LitStr>,
+    /// list of arguments
     args: Vec<VmaFunctionArg>,
+    /// true if the ffi function returns a result
     returns_result: bool,
 }
 
+/// Description of a vma function parameter
 #[derive(Clone)]
 struct VmaFunctionArg {
+    /// name to use for the parameter
     name: Ident,
+    /// type of the parameter in the ffi function
     ffi_type: syn::Type,
-    rs_arg_kind: VmaFunctionArgKind,
-}
-
-#[derive(Clone)]
-enum VmaFunctionArgKind {
-    Normal,
-    Len,
-    PNext(syn::Type, bool),
-    Ref(syn::Type),
-    Out(syn::Type),
-    OutArray(syn::Type, ArrayLen),
-    InArray(syn::Type, ArrayLen),
+    /// semantic type of the parameter in the high-level function
+    rs_arg_kind: VmaVarKind,
 }
