@@ -20,6 +20,15 @@ impl AllocatorCreateFlags {
     pub const BUFFER_DEVICE_ADDRESS: Self = Self(32);
     #[doc = "Enables usage of VK_EXT_memory_priority extension in the library.\n\n You may set this flag only if you found available and enabled this device extension,\n along with `VkPhysicalDeviceMemoryPriorityFeaturesEXT::memoryPriority == VK_TRUE`,\n while creating Vulkan device passed as VmaAllocatorCreateInfo::device.\n\n When this flag is used, VmaAllocationCreateInfo::priority and VmaPoolCreateInfo::priority\n are used to set priorities of allocated Vulkan memory. Without it, these variables are ignored.\n\n A priority must be a floating-point value between 0 and 1, indicating the priority of the allocation relative to other memory allocations.\n Larger values are higher priority. The granularity of the priorities is implementation-dependent.\n It is automatically passed to every call to `vkAllocateMemory` done by the library using structure `VkMemoryPriorityAllocateInfoEXT`.\n The value to be used for default priority is 0.5.\n For more details, see the documentation of the VK_EXT_memory_priority extension."]
     pub const EXT_MEMORY_PRIORITY: Self = Self(64);
+    pub fn empty() -> Self {
+        Self(0)
+    }
+    pub fn into_raw(self) -> u32 {
+        self.0
+    }
+    pub fn from_raw(v: u32) -> Self {
+        Self(v)
+    }
 }
 impl ::std::ops::BitOr<AllocatorCreateFlags> for AllocatorCreateFlags {
     type Output = Self;
@@ -60,6 +69,16 @@ impl ::std::ops::Not for AllocatorCreateFlags {
         Self(!self.0)
     }
 }
+impl AllocatorCreateFlags {
+    #[doc = r" Checks whether `other` is a subset of `self`"]
+    pub fn contains(self, other: Self) -> bool {
+        (self.0 & other.0) == other.0
+    }
+    #[doc = r" Checks whether `other` and `self` have bits in common"]
+    pub fn intersects(self, other: Self) -> bool {
+        (self.0 & other.0) != 0
+    }
+}
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 #[doc = "\\brief Intended usage of the allocated memory."]
@@ -85,6 +104,15 @@ impl MemoryUsage {
     pub const AUTO_PREFER_DEVICE: Self = Self(8);
     #[doc = "Selects best memory type automatically with preference for CPU (host) memory.\n\n When using this flag, if you want to map the allocation (using vmaMapMemory() or #VMA_ALLOCATION_CREATE_MAPPED_BIT),\n you must pass one of the flags: #VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT or #VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT\n in VmaAllocationCreateInfo::flags.\n\n It can be used only with functions that let the library know `VkBufferCreateInfo` or `VkImageCreateInfo`, e.g.\n vmaCreateBuffer(), vmaCreateImage(), vmaFindMemoryTypeIndexForBufferInfo(), vmaFindMemoryTypeIndexForImageInfo()\n and not with generic memory allocation functions."]
     pub const AUTO_PREFER_HOST: Self = Self(9);
+    pub fn empty() -> Self {
+        Self(0)
+    }
+    pub fn into_raw(self) -> u32 {
+        self.0
+    }
+    pub fn from_raw(v: u32) -> Self {
+        Self(v)
+    }
 }
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -125,6 +153,15 @@ impl AllocationCreateFlags {
     pub const STRATEGY_FIRST_FIT: Self = Self(131072);
     #[doc = "A bit mask to extract only `STRATEGY` bits from entire set of flags."]
     pub const STRATEGY_MASK: Self = Self(458752);
+    pub fn empty() -> Self {
+        Self(0)
+    }
+    pub fn into_raw(self) -> u32 {
+        self.0
+    }
+    pub fn from_raw(v: u32) -> Self {
+        Self(v)
+    }
 }
 impl ::std::ops::BitOr<AllocationCreateFlags> for AllocationCreateFlags {
     type Output = Self;
@@ -165,6 +202,16 @@ impl ::std::ops::Not for AllocationCreateFlags {
         Self(!self.0)
     }
 }
+impl AllocationCreateFlags {
+    #[doc = r" Checks whether `other` is a subset of `self`"]
+    pub fn contains(self, other: Self) -> bool {
+        (self.0 & other.0) == other.0
+    }
+    #[doc = r" Checks whether `other` and `self` have bits in common"]
+    pub fn intersects(self, other: Self) -> bool {
+        (self.0 & other.0) != 0
+    }
+}
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 #[doc = "Flags to be passed as VmaPoolCreateInfo::flags."]
@@ -176,6 +223,15 @@ impl PoolCreateFlags {
     pub const LINEAR_ALGORITHM: Self = Self(4);
     #[doc = "Bit mask to extract only `ALGORITHM` bits from entire set of flags."]
     pub const ALGORITHM_MASK: Self = Self(4);
+    pub fn empty() -> Self {
+        Self(0)
+    }
+    pub fn into_raw(self) -> u32 {
+        self.0
+    }
+    pub fn from_raw(v: u32) -> Self {
+        Self(v)
+    }
 }
 impl ::std::ops::BitOr<PoolCreateFlags> for PoolCreateFlags {
     type Output = Self;
@@ -216,6 +272,16 @@ impl ::std::ops::Not for PoolCreateFlags {
         Self(!self.0)
     }
 }
+impl PoolCreateFlags {
+    #[doc = r" Checks whether `other` is a subset of `self`"]
+    pub fn contains(self, other: Self) -> bool {
+        (self.0 & other.0) == other.0
+    }
+    #[doc = r" Checks whether `other` and `self` have bits in common"]
+    pub fn intersects(self, other: Self) -> bool {
+        (self.0 & other.0) != 0
+    }
+}
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 #[doc = "Flags to be passed as VmaDefragmentationInfo::flags."]
@@ -228,6 +294,15 @@ impl DefragmentationFlags {
     pub const FLAG_ALGORITHM_EXTENSIVE: Self = Self(8);
     #[doc = "A bit mask to extract only `ALGORITHM` bits from entire set of flags."]
     pub const FLAG_ALGORITHM_MASK: Self = Self(15);
+    pub fn empty() -> Self {
+        Self(0)
+    }
+    pub fn into_raw(self) -> u32 {
+        self.0
+    }
+    pub fn from_raw(v: u32) -> Self {
+        Self(v)
+    }
 }
 impl ::std::ops::BitOr<DefragmentationFlags> for DefragmentationFlags {
     type Output = Self;
@@ -268,6 +343,16 @@ impl ::std::ops::Not for DefragmentationFlags {
         Self(!self.0)
     }
 }
+impl DefragmentationFlags {
+    #[doc = r" Checks whether `other` is a subset of `self`"]
+    pub fn contains(self, other: Self) -> bool {
+        (self.0 & other.0) == other.0
+    }
+    #[doc = r" Checks whether `other` and `self` have bits in common"]
+    pub fn intersects(self, other: Self) -> bool {
+        (self.0 & other.0) != 0
+    }
+}
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 #[doc = "Operation performed on single defragmentation move. See structure #VmaDefragmentationMove."]
@@ -279,6 +364,15 @@ impl DefragmentationMoveOperation {
     pub const IGNORE: Self = Self(1);
     #[doc = "Set this value if you decide to abandon the allocation and you destroyed the buffer/image. New place reserved at `dstTmpAllocation` will be freed, along with `srcAllocation`, which will be destroyed."]
     pub const DESTROY: Self = Self(2);
+    pub fn empty() -> Self {
+        Self(0)
+    }
+    pub fn into_raw(self) -> u32 {
+        self.0
+    }
+    pub fn from_raw(v: u32) -> Self {
+        Self(v)
+    }
 }
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -289,6 +383,15 @@ impl VirtualBlockCreateFlags {
     pub const LINEAR_ALGORITHM: Self = Self(1);
     #[doc = "\\brief Bit mask to extract only `ALGORITHM` bits from entire set of flags."]
     pub const ALGORITHM_MASK: Self = Self(1);
+    pub fn empty() -> Self {
+        Self(0)
+    }
+    pub fn into_raw(self) -> u32 {
+        self.0
+    }
+    pub fn from_raw(v: u32) -> Self {
+        Self(v)
+    }
 }
 impl ::std::ops::BitOr<VirtualBlockCreateFlags> for VirtualBlockCreateFlags {
     type Output = Self;
@@ -329,6 +432,16 @@ impl ::std::ops::Not for VirtualBlockCreateFlags {
         Self(!self.0)
     }
 }
+impl VirtualBlockCreateFlags {
+    #[doc = r" Checks whether `other` is a subset of `self`"]
+    pub fn contains(self, other: Self) -> bool {
+        (self.0 & other.0) == other.0
+    }
+    #[doc = r" Checks whether `other` and `self` have bits in common"]
+    pub fn intersects(self, other: Self) -> bool {
+        (self.0 & other.0) != 0
+    }
+}
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 #[doc = "Flags to be passed as VmaVirtualAllocationCreateInfo::flags."]
@@ -344,6 +457,15 @@ impl VirtualAllocationCreateFlags {
     pub const STRATEGY_MIN_OFFSET: Self = Self(262144);
     #[doc = "\\brief A bit mask to extract only `STRATEGY` bits from entire set of flags.\n\n These strategy flags are binary compatible with equivalent flags in #VmaAllocationCreateFlagBits."]
     pub const STRATEGY_MASK: Self = Self(458752);
+    pub fn empty() -> Self {
+        Self(0)
+    }
+    pub fn into_raw(self) -> u32 {
+        self.0
+    }
+    pub fn from_raw(v: u32) -> Self {
+        Self(v)
+    }
 }
 impl ::std::ops::BitOr<VirtualAllocationCreateFlags> for VirtualAllocationCreateFlags {
     type Output = Self;
@@ -382,6 +504,16 @@ impl ::std::ops::Not for VirtualAllocationCreateFlags {
     type Output = Self;
     fn not(self) -> Self::Output {
         Self(!self.0)
+    }
+}
+impl VirtualAllocationCreateFlags {
+    #[doc = r" Checks whether `other` is a subset of `self`"]
+    pub fn contains(self, other: Self) -> bool {
+        (self.0 & other.0) == other.0
+    }
+    #[doc = r" Checks whether `other` and `self` have bits in common"]
+    pub fn intersects(self, other: Self) -> bool {
+        (self.0 & other.0) != 0
     }
 }
 #[repr(C)]
@@ -1256,6 +1388,15 @@ impl Default for AllocationInfo {
     }
 }
 impl AllocationInfo {
+    pub unsafe fn name(&self) -> Option<&::std::ffi::CStr> {
+        if !self.p_name.is_null() {
+            Some(::std::ffi::CStr::from_ptr(self.p_name))
+        } else {
+            None
+        }
+    }
+}
+impl AllocationInfo {
     pub fn builder<'a>() -> AllocationInfoBuilder<'a> {
         AllocationInfoBuilder::default()
     }
@@ -1291,8 +1432,8 @@ impl<'a> AllocationInfoBuilder<'a> {
         self.inner.p_user_data = p_user_data;
         self
     }
-    pub fn name(mut self, p_name: *const ::std::ffi::c_char) -> Self {
-        self.inner.p_name = p_name;
+    pub fn name(mut self, p_name: Option<&'a ::std::ffi::CStr>) -> Self {
+        self.inner.p_name = p_name.map_or(::std::ptr::null(), |s| s.as_ptr());
         self
     }
 }
@@ -1429,6 +1570,14 @@ pub struct DefragmentationPassMoveInfo {
 impl Default for DefragmentationPassMoveInfo {
     fn default() -> Self {
         unsafe { ::std::mem::zeroed() }
+    }
+}
+impl DefragmentationPassMoveInfo {
+    pub unsafe fn moves(&self) -> &[DefragmentationMove] {
+        ::std::slice::from_raw_parts(self.p_moves, self.move_count as _)
+    }
+    pub unsafe fn moves_mut(&mut self) -> &mut [DefragmentationMove] {
+        ::std::slice::from_raw_parts_mut(self.p_moves, self.move_count as _)
     }
 }
 impl DefragmentationPassMoveInfo {
@@ -1930,7 +2079,7 @@ pub unsafe fn check_pool_corruption(allocator: Allocator, pool: Pool) -> Result<
     }
 }
 #[doc = "\\brief Retrieves name of a custom pool.\n\nAfter the call `ppName` is either null or points to an internally-owned null-terminated string\ncontaining name of the pool that was previously set. The pointer becomes invalid when the pool is\ndestroyed or its name is changed using vmaSetPoolName()."]
-pub unsafe fn get_pool_name(allocator: Allocator, pool: Pool) -> *const ::std::ffi::c_char {
+pub unsafe fn get_pool_name(allocator: Allocator, pool: Pool) -> Option<::std::ffi::CString> {
     extern "C" {
         fn vmaGetPoolName(
             allocator: Allocator,
@@ -1940,14 +2089,22 @@ pub unsafe fn get_pool_name(allocator: Allocator, pool: Pool) -> *const ::std::f
     }
     let mut pp_name = ::std::mem::zeroed();
     vmaGetPoolName(allocator, pool, &mut pp_name);
-    pp_name
+    if !pp_name.is_null() {
+        Some(::std::ffi::CStr::from_ptr(pp_name).to_owned())
+    } else {
+        None
+    }
 }
 #[doc = "\\brief Sets name of a custom pool.\n\n`pName` can be either null or pointer to a null-terminated string with new name for the pool.\nFunction makes internal copy of the string, so it can be changed or freed immediately after this call."]
-pub unsafe fn set_pool_name(allocator: Allocator, pool: Pool, p_name: *const ::std::ffi::c_char) {
+pub unsafe fn set_pool_name(allocator: Allocator, pool: Pool, p_name: Option<&::std::ffi::CStr>) {
     extern "C" {
         fn vmaSetPoolName(allocator: Allocator, pool: Pool, p_name: *const ::std::ffi::c_char);
     }
-    vmaSetPoolName(allocator, pool, p_name);
+    vmaSetPoolName(
+        allocator,
+        pool,
+        p_name.map_or(::std::ptr::null(), |s| s.as_ptr()),
+    );
 }
 #[doc = "\\brief General purpose memory allocation.\n\n\\param allocator\n\\param pVkMemoryRequirements\n\\param pCreateInfo\n\\param[out] pAllocation Handle to allocated memory.\n\\param[out] pAllocationInfo Optional. Information about allocated memory. It can be later fetched using function vmaGetAllocationInfo().\n\nYou should free the memory using vmaFreeMemory() or vmaFreeMemoryPages().\n\nIt is recommended to use vmaAllocateMemoryForBuffer(), vmaAllocateMemoryForImage(),\nvmaCreateBuffer(), vmaCreateImage() instead whenever possible."]
 pub unsafe fn allocate_memory(
@@ -2123,7 +2280,7 @@ pub unsafe fn set_allocation_user_data(
 pub unsafe fn set_allocation_name(
     allocator: Allocator,
     allocation: Allocation,
-    p_name: *const ::std::ffi::c_char,
+    p_name: Option<&::std::ffi::CStr>,
 ) {
     extern "C" {
         fn vmaSetAllocationName(
@@ -2132,7 +2289,11 @@ pub unsafe fn set_allocation_name(
             p_name: *const ::std::ffi::c_char,
         );
     }
-    vmaSetAllocationName(allocator, allocation, p_name);
+    vmaSetAllocationName(
+        allocator,
+        allocation,
+        p_name.map_or(::std::ptr::null(), |s| s.as_ptr()),
+    );
 }
 #[doc = "\\brief Given an allocation, returns Property Flags of its memory type.\n\nThis is just a convenience function. Same information can be obtained using\nvmaGetAllocationInfo() + vmaGetMemoryProperties()."]
 pub unsafe fn get_allocation_memory_properties(
