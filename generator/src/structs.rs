@@ -158,10 +158,15 @@ fn generate_builder(item: &VmaStruct) -> TokenStream {
                 } else {
                     quote! {mut}
                 };
+                let null_func = if *is_const {
+                    quote! { null }
+                } else {
+                    quote! { null_mut }
+                };
 
                 Some(quote! {
-                    pub fn #func_name(mut self, #name: &'a #mutability impl #trait_name) -> Self {
-                        self.#name = #name as *#ptr_spec _ as *#ptr_spec _;
+                    pub fn #func_name(mut self, #name: Option<&'a #mutability impl #trait_name>) -> Self {
+                        self.#name = #name.map_or(::std::ptr::#null_func(), |p| p as *#ptr_spec _ as *#ptr_spec _);
                         self
                     }
                 })

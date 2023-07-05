@@ -1349,9 +1349,10 @@ impl<'a> PoolCreateInfoBuilder<'a> {
     }
     pub fn memory_allocate_next(
         mut self,
-        p_memory_allocate_next: &'a mut impl vk::ExtendsMemoryAllocateInfo,
+        p_memory_allocate_next: Option<&'a mut impl vk::ExtendsMemoryAllocateInfo>,
     ) -> Self {
-        self.p_memory_allocate_next = p_memory_allocate_next as *mut _ as *mut _;
+        self.p_memory_allocate_next =
+            p_memory_allocate_next.map_or(::std::ptr::null_mut(), |p| p as *mut _ as *mut _);
         self
     }
 }
@@ -2560,7 +2561,7 @@ pub unsafe fn bind_buffer_memory_2(
     allocation: Allocation,
     allocation_local_offset: vk::DeviceSize,
     buffer: vk::Buffer,
-    p_next: &impl vk::ExtendsBindBufferMemoryInfo,
+    p_next: Option<&impl vk::ExtendsBindBufferMemoryInfo>,
 ) -> Result<(), vk::Result> {
     extern "C" {
         fn vmaBindBufferMemory2(
@@ -2576,7 +2577,7 @@ pub unsafe fn bind_buffer_memory_2(
         allocation,
         allocation_local_offset,
         buffer,
-        p_next as *const _ as *const _,
+        p_next.map_or(::std::ptr::null(), |p| p as *const _ as *const _),
     );
     if result == vk::Result::SUCCESS {
         Ok(())
@@ -2610,7 +2611,7 @@ pub unsafe fn bind_image_memory_2(
     allocation: Allocation,
     allocation_local_offset: vk::DeviceSize,
     image: vk::Image,
-    p_next: &impl vk::ExtendsBindImageMemoryInfo,
+    p_next: Option<&impl vk::ExtendsBindImageMemoryInfo>,
 ) -> Result<(), vk::Result> {
     extern "C" {
         fn vmaBindImageMemory2(
@@ -2626,7 +2627,7 @@ pub unsafe fn bind_image_memory_2(
         allocation,
         allocation_local_offset,
         image,
-        p_next as *const _ as *const _,
+        p_next.map_or(::std::ptr::null(), |p| p as *const _ as *const _),
     );
     if result == vk::Result::SUCCESS {
         Ok(())

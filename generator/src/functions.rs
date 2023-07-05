@@ -46,7 +46,7 @@ fn generate_func(func: VmaFunction) -> TokenStream {
             }
             VmaVarKind::PNext(trait_name, is_const) => {
                 let mutability = (!is_const).then(|| quote! {mut});
-                Some(quote! { #name: &#mutability impl #trait_name })
+                Some(quote! { #name: Option<&#mutability impl #trait_name> })
             }
             VmaVarKind::Ref(ref_ty) => Some(quote! {#name: &#ref_ty}),
             VmaVarKind::Array(array_ty, _) => Some(quote! {#name: &[#array_ty]}),
@@ -163,8 +163,8 @@ fn generate_func(func: VmaFunction) -> TokenStream {
         let pass_args = func.args.iter().map(|arg| {
             let name = &arg.name;
             match &arg.rs_arg_kind {
-                VmaVarKind::PNext(_, false) => quote! { #name as *mut _ as *mut _ },
-                VmaVarKind::PNext(_, true) => quote! { #name as *const _ as *const _ },
+                VmaVarKind::PNext(_, false) => quote! { #name.map_or(::std::ptr::null_mut(), |p| p as *mut _ as *mut _) },
+                VmaVarKind::PNext(_, true) => quote! { #name.map_or(::std::ptr::null(), |p| p as *const _ as *const _) },
                 VmaVarKind::Normal => quote! {#name},
                 VmaVarKind::Len => {
                     let first_array = &func
