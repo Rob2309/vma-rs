@@ -150,6 +150,27 @@ fn generate_builder(item: &VmaStruct) -> TokenStream {
                     }
                 })
             }
+            VmaVarKind::PNext(trait_name, is_const) => {
+                let name = &field.name;
+                let mutability = (!is_const).then(|| quote! {mut});
+                let ptr_spec = if *is_const {
+                    quote! {const}
+                } else {
+                    quote! {mut}
+                };
+                let null_func = if *is_const {
+                    quote! { null }
+                } else {
+                    quote! { null_mut }
+                };
+
+                Some(quote! {
+                    pub fn #func_name(mut self, #name: Option<&'a #mutability impl #trait_name>) -> Self {
+                        self.#name = #name.map_or(::std::ptr::#null_func(), |p| p as *#ptr_spec _ as *#ptr_spec _);
+                        self
+                    }
+                })
+            }
             VmaVarKind::Len => None, // Length fields are set when the corresponding array field is set
             VmaVarKind::Ref(ty) => {
                 let name = &field.name;
@@ -350,10 +371,23 @@ fn parse_field(field: &Entity) -> VmaStructField {
                 .trim_start_matches("LEN:")
                 .to_string()
         });
+    let extends_attr = field
+        .get_children()
+        .iter()
+        .find(|child| {
+            child.get_kind() == EntityKind::AnnotateAttr
+                && child.get_display_name().unwrap().starts_with("VK_STRUCT:")
+        })
+        .map(|attr| {
+            attr.get_display_name()
+                .unwrap()
+                .trim_start_matches("VK_STRUCT:")
+                .to_string()
+        });
 
     let field_type = field.get_type().unwrap();
     let ty = translate_ffi_type(&field_type);
-    let kind = translate_var(&field_type, len_attr);
+    let kind = translate_var(&field_type, len_attr, extends_attr);
 
     VmaStructField {
         name,

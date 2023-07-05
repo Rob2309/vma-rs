@@ -44,6 +44,10 @@ fn generate_func(func: VmaFunction) -> TokenStream {
                 let ty = &arg.ffi_type;
                 Some(quote! {#name: #ty})
             }
+            VmaVarKind::PNext(trait_name, is_const) => {
+                let mutability = (!is_const).then(|| quote! {mut});
+                Some(quote! { #name: Option<&#mutability impl #trait_name> })
+            }
             VmaVarKind::Ref(ref_ty) => Some(quote! {#name: &#ref_ty}),
             VmaVarKind::Array(array_ty, _) => Some(quote! {#name: &[#array_ty]}),
             VmaVarKind::Str => Some(quote! {#name: Option<&::std::ffi::CStr>}),
@@ -159,6 +163,8 @@ fn generate_func(func: VmaFunction) -> TokenStream {
         let pass_args = func.args.iter().map(|arg| {
             let name = &arg.name;
             match &arg.rs_arg_kind {
+                VmaVarKind::PNext(_, false) => quote! { #name.map_or(::std::ptr::null_mut(), |p| p as *mut _ as *mut _) },
+                VmaVarKind::PNext(_, true) => quote! { #name.map_or(::std::ptr::null(), |p| p as *const _ as *const _) },
                 VmaVarKind::Normal => quote! {#name},
                 VmaVarKind::Len => {
                     let first_array = &func
@@ -335,10 +341,23 @@ fn parse_arg(entity: &Entity) -> VmaFunctionArg {
                 .trim_start_matches("LEN:")
                 .to_string()
         });
+    let extends = entity
+        .get_children()
+        .iter()
+        .find(|c| {
+            c.get_kind() == EntityKind::AnnotateAttr
+                && c.get_display_name().unwrap().starts_with("VK_STRUCT:")
+        })
+        .map(|a| {
+            a.get_display_name()
+                .unwrap()
+                .trim_start_matches("VK_STRUCT:")
+                .to_string()
+        });
     let ty = entity.get_type().unwrap();
 
     let ffi_type = translate_ffi_type(&ty);
-    let rs_arg_kind = translate_var(&ty, len);
+    let rs_arg_kind = translate_var(&ty, len, extends);
 
     VmaFunctionArg {
         name,

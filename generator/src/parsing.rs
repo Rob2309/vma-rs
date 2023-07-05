@@ -24,6 +24,8 @@ pub enum VmaVarKind {
     Str,
     /// A `*mut *const c_char`
     StrMut,
+    /// A `*const c_void` or `*mut c_void` that extends a Vulkan structure
+    PNext(syn::Type, bool),
 }
 
 /// Describes how the length of an array field is determined
@@ -49,9 +51,13 @@ impl ArrayLen {
 }
 
 /// Translates the raw type of a variable into a semantic type.
-/// 
+///
 /// `len_attr` is the content of a VMA_LEN_IF_NOT_NULL(...) attribute, if present
-pub fn translate_var(ty: &Type, len_attr: Option<String>) -> VmaVarKind {
+pub fn translate_var(
+    ty: &Type,
+    len_attr: Option<String>,
+    extends_attr: Option<String>,
+) -> VmaVarKind {
     match ty.get_kind() {
         // almost all types used by vma are typedefs, treat them as normal variables
         TypeKind::Typedef => VmaVarKind::Normal,
@@ -68,7 +74,20 @@ pub fn translate_var(ty: &Type, len_attr: Option<String>) -> VmaVarKind {
             let len = len_attr.map(|l| ArrayLen::parse(&l));
 
             match (is_const, pointee.get_kind(), len) {
-                (false, TypeKind::Void, _) => VmaVarKind::Normal, // *mut c_void should not be treated like a reference
+                (false, TypeKind::Void, _) => {
+                    // *mut c_void should not be treated like a reference
+                    if let Some(extends_attr) = extends_attr {
+                        let trait_name = format!(
+                            "vk::Extends{}",
+                            extends_attr
+                                .trim_start_matches("Vk")
+                                .trim_end_matches("KHR")
+                        );
+                        VmaVarKind::PNext(syn::parse_str(&trait_name).unwrap(), false)
+                    } else {
+                        VmaVarKind::Normal
+                    }
+                }
                 (false, _, Some(len)) => VmaVarKind::ArrayMut(converted_pointee, len),
                 (false, TypeKind::Pointer, None) => {
                     // *mut *const c_char is a mutable string, do not treat like a normal reference
@@ -82,6 +101,19 @@ pub fn translate_var(ty: &Type, len_attr: Option<String>) -> VmaVarKind {
                     }
                 }
                 (false, _, None) => VmaVarKind::RefMut(converted_pointee),
+                (true, TypeKind::Void, _) => {
+                    if let Some(extends_attr) = extends_attr {
+                        let trait_name = format!(
+                            "vk::Extends{}",
+                            extends_attr
+                                .trim_start_matches("Vk")
+                                .trim_end_matches("KHR")
+                        );
+                        VmaVarKind::PNext(syn::parse_str(&trait_name).unwrap(), true)
+                    } else {
+                        panic!("const void* unexpected");
+                    }
+                }
                 (true, TypeKind::CharS | TypeKind::CharU, _) => VmaVarKind::Str, // *const c_char is a string, not a reference
                 (true, _, Some(len)) => VmaVarKind::Array(converted_pointee, len),
                 (true, _, None) => VmaVarKind::Ref(converted_pointee),
@@ -103,7 +135,7 @@ pub fn translate_var(ty: &Type, len_attr: Option<String>) -> VmaVarKind {
 
 /// Translates a libclang type into a rust definition of the same type.
 /// For example, converts `const Foo*` into `*const Foo`.
-/// 
+///
 /// Also convert raw type names into namespaced ones, e.g. `VkDeviceCreateInfo` into `vk::DeviceCreateInfo`
 pub fn translate_ffi_type(ty: &Type) -> syn::Type {
     match ty.get_kind() {
@@ -138,7 +170,7 @@ pub fn translate_ffi_type(ty: &Type) -> syn::Type {
 }
 
 /// Convertes the name of a typedef to the corresponding name in rust.
-/// 
+///
 /// E.g. `VkDeviceCreateInfo` to `vk::DeviceCreateInfo`
 /// or `uint32_t` to `u32`
 pub fn convert_typedef(name: &str) -> syn::Type {
