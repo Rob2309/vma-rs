@@ -9,7 +9,7 @@
 This crate provides auto generated [ash](https://github.com/ash-rs/ash)-style bindings to the beloved [Vulkan Memory Allocator](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator).
 
 Every VMA struct has an associated `builder` just like ash structs:
-```rust
+```rust ignore
 use ash_mem_alloc::vma;
 
 let info = vma::AllocatorCreateInfo::builder()

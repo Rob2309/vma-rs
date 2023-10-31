@@ -12,3 +12,7 @@ pub type PFN_vmaAllocateDeviceMemoryFunction = Option<
 pub type PFN_vmaFreeDeviceMemoryFunction = Option<
     unsafe extern "system" fn(vma::Allocator, u32, vk::DeviceMemory, vk::DeviceSize, *mut c_void),
 >;
+
+pub type PFN_vmaCheckDefragmentationBreakFunction = Option<
+    unsafe extern "system" fn(*mut c_void) -> u32
+>;

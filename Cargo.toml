@@ -3,3 +3,4 @@ members = [
     "generator",
     "ash-mem-alloc",
 ]
+resolver = "2"
