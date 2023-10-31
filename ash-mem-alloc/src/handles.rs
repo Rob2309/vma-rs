@@ -5,12 +5,18 @@ macro_rules! handle {
         pub struct $name(u64);
 
         impl ::std::fmt::Display for $name {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+            fn fmt(
+                &self,
+                f: &mut std::fmt::Formatter<'_>,
+            ) -> std::result::Result<(), std::fmt::Error> {
                 write!(f, concat!(stringify!($name), "(0x{:08x})"), self.0)
             }
         }
         impl ::std::fmt::Pointer for $name {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+            fn fmt(
+                &self,
+                f: &mut std::fmt::Formatter<'_>,
+            ) -> std::result::Result<(), std::fmt::Error> {
                 write!(f, "0x{:08x}", self.0)
             }
         }

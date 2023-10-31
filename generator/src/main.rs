@@ -15,13 +15,20 @@ const VK_INCLUDES: &str = concat!(
     "/../ash-mem-alloc/vendor/vk-headers/include"
 );
 
-const OUT_FILE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../ash-mem-alloc/src/bindings.rs");
+const OUT_FILE: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../ash-mem-alloc/src/bindings.rs"
+);
 
 mod enums;
 mod functions;
+mod parsing;
 mod structs;
 
 fn main() {
+    // This generator directly uses libclang instead of bindgen because
+    // bindgen does not give us enough control to generate ash-style bindings
+
     let clang = Clang::new().unwrap();
     let index = Index::new(&clang, false, true);
 
