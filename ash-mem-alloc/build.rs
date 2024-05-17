@@ -7,9 +7,9 @@ const INCLUDES: &[&str] = &[
 
 fn main() {
     cc::Build::new()
-        .file(VMA_FILE)
         .cpp(true)
+        .file(VMA_FILE)
         .includes(INCLUDES)
-        .flag_if_supported("-Wno-everything")
+        .warnings(false)
         .compile("vma");
 }

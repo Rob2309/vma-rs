@@ -20,7 +20,7 @@ exclude = [
 ]
 
 [dependencies]
-ash = "0.37.3"
+ash = "0.38.0"
 
 [build-dependencies]
-cc = "1.0.79"
+cc = "1.0.97"

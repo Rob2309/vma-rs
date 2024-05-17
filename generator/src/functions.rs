@@ -51,6 +51,8 @@ fn generate_func(func: VmaFunction) -> TokenStream {
             VmaVarKind::Ref(ref_ty) => Some(quote! {#name: &#ref_ty}),
             VmaVarKind::Array(array_ty, _) => Some(quote! {#name: &[#array_ty]}),
             VmaVarKind::Str => Some(quote! {#name: Option<&::std::ffi::CStr>}),
+            VmaVarKind::BufferConst(_) => Some(quote! { #name: &[u8] }),
+            VmaVarKind::BufferMut(_) => Some(quote! { #name: &mut [u8] }),
             _ => None,
         }
     });
@@ -128,7 +130,7 @@ fn generate_func(func: VmaFunction) -> TokenStream {
                             })
                             .unwrap()
                             .name;
-                        
+
                         // use this array to deduce length field
                         quote! {let #len_field_name = #first_array.len();}
                     }
@@ -163,15 +165,21 @@ fn generate_func(func: VmaFunction) -> TokenStream {
         let pass_args = func.args.iter().map(|arg| {
             let name = &arg.name;
             match &arg.rs_arg_kind {
-                VmaVarKind::PNext(_, false) => quote! { #name.map_or(::std::ptr::null_mut(), |p| p as *mut _ as *mut _) },
-                VmaVarKind::PNext(_, true) => quote! { #name.map_or(::std::ptr::null(), |p| p as *const _ as *const _) },
+                VmaVarKind::PNext(_, false) => {
+                    quote! { #name.map_or(::std::ptr::null_mut(), |p| p as *mut _ as *mut _) }
+                }
+                VmaVarKind::PNext(_, true) => {
+                    quote! { #name.map_or(::std::ptr::null(), |p| p as *const _ as *const _) }
+                }
                 VmaVarKind::Normal => quote! {#name},
                 VmaVarKind::Len => {
                     let first_array = &func
                         .args
                         .iter()
                         .find(|arg| {
-                            if let VmaVarKind::Array(_, ArrayLen::Adjacent(len)) = &arg.rs_arg_kind
+                            if let VmaVarKind::Array(_, ArrayLen::Adjacent(len))
+                            | VmaVarKind::BufferConst(ArrayLen::Adjacent(len))
+                            | VmaVarKind::BufferMut(ArrayLen::Adjacent(len)) = &arg.rs_arg_kind
                             {
                                 len == name
                             } else {
@@ -194,6 +202,8 @@ fn generate_func(func: VmaFunction) -> TokenStream {
                 VmaVarKind::Str => quote! { #name.map_or(::std::ptr::null(), |s| s.as_ptr())  },
                 VmaVarKind::StrMut => quote! { &mut #name },
                 VmaVarKind::ConstantArray(_, _) => panic!("Arrays not supported as arguments"),
+                VmaVarKind::BufferConst(_) => quote! { #name.as_ptr().cast() },
+                VmaVarKind::BufferMut(_) => quote! { #name.as_mut_ptr().cast() },
             }
         });
 
@@ -222,7 +232,7 @@ fn generate_func(func: VmaFunction) -> TokenStream {
                 }
             })
             .collect::<Vec<_>>();
-        
+
         let arg_returns_tuple = if arg_returns.len() == 1 {
             quote! { #(#arg_returns)* }
         } else if arg_returns.is_empty() {
@@ -249,12 +259,18 @@ fn generate_func(func: VmaFunction) -> TokenStream {
         }
     };
 
+    let lifetime = if func.args.iter().any(|arg| arg.needs_lifetime) {
+        quote!{ <'a> }
+    } else {
+        quote!{}
+    };
+
     // final function definition
     quote! {
         #docs
-        pub unsafe fn #rs_name(#(#rs_args),*) #return_type {
+        pub unsafe fn #rs_name #lifetime (#(#rs_args),*) #return_type {
             extern "C" {
-                fn #c_name(#(#c_args),*) #c_return_type;
+                fn #c_name #lifetime (#(#c_args),*) #c_return_type;
             }
 
             #(#buffers)*
@@ -357,13 +373,14 @@ fn parse_arg(entity: &Entity) -> VmaFunctionArg {
         });
     let ty = entity.get_type().unwrap();
 
-    let ffi_type = translate_ffi_type(&ty);
+    let (ffi_type, needs_lifetime) = translate_ffi_type(&ty);
     let rs_arg_kind = translate_var(&ty, len, extends);
 
     VmaFunctionArg {
         name,
         ffi_type,
         rs_arg_kind,
+        needs_lifetime,
     }
 }
 
@@ -390,4 +407,5 @@ struct VmaFunctionArg {
     ffi_type: syn::Type,
     /// semantic type of the parameter in the high-level function
     rs_arg_kind: VmaVarKind,
+    needs_lifetime: bool,
 }

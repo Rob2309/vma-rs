@@ -7,7 +7,7 @@ use syn::LitStr;
 use crate::parsing::{translate_ffi_type, translate_var, ArrayLen, VmaVarKind};
 
 /// Generates rust bindings for every Vma struct.
-/// 
+///
 /// Also generates corresponding builder structs.
 pub fn generate_structs(tu: &Entity) -> TokenStream {
     let mut vma_structs = Vec::new();
@@ -52,15 +52,19 @@ fn generate_struct(item: &VmaStruct) -> TokenStream {
     let builder = generate_builder(item);
     let getters = generate_getters(item);
 
+    let lifetime = needs_lifetime(item).then(|| quote! { <'a> });
+    let phantom = needs_lifetime(item).then(|| quote! { _p: ::std::marker::PhantomData<&'a ()>, });
+
     quote! {
         #[repr(C)]
         #[derive(Debug, Clone, Copy)]
         #docs
-        pub struct #name {
-            #(#fields),*
+        pub struct #name #lifetime {
+            #(#fields,)*
+            #phantom
         }
 
-        impl Default for #name {
+        impl #lifetime Default for #name #lifetime {
             fn default() -> Self {
                 unsafe { ::std::mem::zeroed() }
             }
@@ -72,11 +76,28 @@ fn generate_struct(item: &VmaStruct) -> TokenStream {
     }
 }
 
+fn needs_lifetime(item: &VmaStruct) -> bool {
+    item.fields.iter().any(|field| match &field.kind {
+        VmaVarKind::Normal => field.needs_lifetime,
+        VmaVarKind::Len => false,
+        VmaVarKind::Ref(_) => true,
+        VmaVarKind::RefMut(_) => true,
+        VmaVarKind::Array(_, _) => true,
+        VmaVarKind::ArrayMut(_, _) => true,
+        VmaVarKind::ConstantArray(_, _) => false,
+        VmaVarKind::Str => true,
+        VmaVarKind::PNext(_, _) => true,
+        _ => panic!("Unexpected struct field kind"),
+    })
+}
+
 /// Generates getters for certain special fields
 /// - for array fields, generates getters returning a slice
 /// - for string fields, generates getters returning a &CStr
 fn generate_getters(item: &VmaStruct) -> TokenStream {
     let name = &item.name;
+
+    let lifetime = needs_lifetime(item).then(|| quote! { <'a> });
 
     let getters = item
         .fields
@@ -85,25 +106,25 @@ fn generate_getters(item: &VmaStruct) -> TokenStream {
             VmaVarKind::ArrayMut(element_ty, ArrayLen::Adjacent(len_field)) => {
                 let field_name = &field.name;
                 let getter_name =
-                    format_ident!("{}", field_name.to_string().trim_start_matches("p_"));
+                    format_ident!("get_{}", field_name.to_string().trim_start_matches("p_"));
                 let getter_name_mut =
-                    format_ident!("{}_mut", field_name.to_string().trim_start_matches("p_"));
+                    format_ident!("get_{}_mut", field_name.to_string().trim_start_matches("p_"));
                 Some(quote! {
-                    pub unsafe fn #getter_name(&self) -> &[#element_ty] {
-                        ::std::slice::from_raw_parts(self.#field_name, self.#len_field as _)
+                    pub fn #getter_name(&self) -> &[#element_ty] {
+                        unsafe { ::std::slice::from_raw_parts(self.#field_name, self.#len_field as _) }
                     }
-                    pub unsafe fn #getter_name_mut(&mut self) -> &mut [#element_ty] {
-                        ::std::slice::from_raw_parts_mut(self.#field_name, self.#len_field as _)
+                    pub fn #getter_name_mut(&mut self) -> &mut [#element_ty] {
+                        unsafe { ::std::slice::from_raw_parts_mut(self.#field_name, self.#len_field as _) }
                     }
                 })
             }
             VmaVarKind::Str => {
                 let field_name = &field.name;
                 let getter_name =
-                    format_ident!("{}", field_name.to_string().trim_start_matches("p_"));
+                    format_ident!("get_{}", field_name.to_string().trim_start_matches("p_"));
                 Some(quote! {
-                    pub unsafe fn #getter_name(&self) -> Option<&::std::ffi::CStr> {
-                        if !self.#field_name.is_null() { Some(::std::ffi::CStr::from_ptr(self.#field_name)) } else { None }
+                    pub fn #getter_name(&self) -> Option<&::std::ffi::CStr> {
+                        if !self.#field_name.is_null() { Some(unsafe { ::std::ffi::CStr::from_ptr(self.#field_name) }) } else { None }
                     }
                 })
             }
@@ -113,7 +134,7 @@ fn generate_getters(item: &VmaStruct) -> TokenStream {
 
     if !getters.is_empty() {
         quote! {
-            impl #name {
+            impl #lifetime #name #lifetime {
                 #(#getters)*
             }
         }
@@ -125,7 +146,8 @@ fn generate_getters(item: &VmaStruct) -> TokenStream {
 /// Generates a builder struct for a parsed Vma struct
 fn generate_builder(item: &VmaStruct) -> TokenStream {
     let name = &item.name;
-    let builder_name = format_ident!("{name}Builder");
+
+    let lifetime = needs_lifetime(item).then(|| quote! { <'a> });
 
     let functions = item.fields.iter().filter_map(|field| {
         // remove ugly prefixes for builder function name
@@ -145,7 +167,7 @@ fn generate_builder(item: &VmaStruct) -> TokenStream {
                 let ty = &field.ty;
                 Some(quote! {
                     pub fn #func_name(mut self, #name: #ty) -> Self {
-                        self.inner.#name = #name;
+                        self.#name = #name;
                         self
                     }
                 })
@@ -176,7 +198,7 @@ fn generate_builder(item: &VmaStruct) -> TokenStream {
                 let name = &field.name;
                 Some(quote! {
                     pub fn #func_name(mut self, #name: &'a #ty) -> Self {
-                        self.inner.#name = #name;
+                        self.#name = #name;
                         self
                     }
                 })
@@ -185,7 +207,7 @@ fn generate_builder(item: &VmaStruct) -> TokenStream {
                 let name = &field.name;
                 Some(quote! {
                     pub fn #func_name(mut self, #name: &'a mut #ty) -> Self {
-                        self.inner.#name = #name;
+                        self.#name = #name;
                         self
                     }
                 })
@@ -196,8 +218,8 @@ fn generate_builder(item: &VmaStruct) -> TokenStream {
                 let name = &field.name;
                 Some(quote! {
                     pub fn #func_name(mut self, #name: &'a [#ty]) -> Self {
-                        self.inner.#name = #name.as_ptr();
-                        self.inner.#len = #name.len() as _;
+                        self.#name = #name.as_ptr();
+                        self.#len = #name.len() as _;
                         self
                     }
                 })
@@ -208,7 +230,7 @@ fn generate_builder(item: &VmaStruct) -> TokenStream {
                 let name = &field.name;
                 Some(quote! {
                     pub fn #func_name(mut self, #name: &'a [#ty]) -> Self {
-                        self.inner.#name = #name.as_ptr();
+                        self.#name = #name.as_ptr();
                         self
                     }
                 })
@@ -220,7 +242,7 @@ fn generate_builder(item: &VmaStruct) -> TokenStream {
                 Some(quote! {
                     pub fn #func_name(mut self, #name: &'a mut [#ty]) -> Self {
                         self.#name = #name.as_mut_ptr();
-                        self.inner.#len = #name.len() as _;
+                        self.#len = #name.len() as _;
                         self
                     }
                 })
@@ -231,7 +253,7 @@ fn generate_builder(item: &VmaStruct) -> TokenStream {
                 let name = &field.name;
                 Some(quote! {
                     pub fn #func_name(mut self, #name: &'a mut [#ty]) -> Self {
-                        self.inner.#name = #name.as_mut_ptr();
+                        self.#name = #name.as_mut_ptr();
                         self
                     }
                 })
@@ -240,7 +262,7 @@ fn generate_builder(item: &VmaStruct) -> TokenStream {
                 let name = &field.name;
                 Some(quote! {
                     pub fn #func_name(mut self, #name: [#ty; #len]) -> Self {
-                        self.inner.#name = #name;
+                        self.#name = #name;
                         self
                     }
                 })
@@ -250,43 +272,18 @@ fn generate_builder(item: &VmaStruct) -> TokenStream {
                 let name = &field.name;
                 Some(quote! {
                     pub fn #func_name(mut self, #name: Option<&'a ::std::ffi::CStr>) -> Self {
-                        self.inner.#name = #name.map_or(::std::ptr::null(), |s| s.as_ptr());
+                        self.#name = #name.map_or(::std::ptr::null(), |s| s.as_ptr());
                         self
                     }
                 })
             }
-            VmaVarKind::StrMut => panic!("StrMut not expected as struct field type"),
+            _ => panic!("Unexpected struct field kind"),
         }
     });
 
     quote! {
-        impl #name {
-            pub fn builder<'a>() -> #builder_name<'a> {
-                #builder_name::default()
-            }
-        }
-
-        #[repr(transparent)]
-        #[derive(Debug, Clone, Copy, Default)]
-        pub struct #builder_name<'a> {
-            inner: #name,
-            _p: ::std::marker::PhantomData<&'a ()>,
-        }
-
-        impl<'a> #builder_name<'a> {
+        impl #lifetime #name #lifetime {
             #(#functions)*
-        }
-
-        impl<'a> ::std::ops::Deref for #builder_name<'a> {
-            type Target = #name;
-            fn deref(&self) -> &#name {
-                &self.inner
-            }
-        }
-        impl<'a> ::std::ops::DerefMut for #builder_name<'a> {
-            fn deref_mut(&mut self) -> &mut #name {
-                &mut self.inner
-            }
         }
     }
 }
@@ -355,7 +352,7 @@ fn parse_field(field: &Entity) -> VmaStructField {
                 .replace("    ", " ")
         })
         .map(|comment| syn::parse2::<LitStr>(quote! {#comment}).unwrap());
-    
+
     // Try to find a VMA_LEN_IF_NOT_NULL(...) attribute, which describes
     // the required length for a given array pointer.
     // The generator uses #define VMA_LEN_IF_NOT_NULL(len) __attribute__((annotate("LEN:"#len)))
@@ -388,7 +385,7 @@ fn parse_field(field: &Entity) -> VmaStructField {
         });
 
     let field_type = field.get_type().unwrap();
-    let ty = translate_ffi_type(&field_type);
+    let (ty, needs_lifetime) = translate_ffi_type(&field_type);
     let kind = translate_var(&field_type, len_attr, extends_attr);
 
     VmaStructField {
@@ -396,6 +393,7 @@ fn parse_field(field: &Entity) -> VmaStructField {
         docs,
         ty,
         kind,
+        needs_lifetime,
     }
 }
 
@@ -419,4 +417,5 @@ struct VmaStructField {
     ty: syn::Type,
     /// semantic usage of the field
     kind: VmaVarKind,
+    needs_lifetime: bool,
 }

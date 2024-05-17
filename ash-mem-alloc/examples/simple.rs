@@ -1,13 +1,13 @@
 use ash::vk;
-use ash_mem_alloc::vma;
+use ash_mem_alloc::vma::{self};
 use std::ffi::c_void;
 
 fn main() {
     let entry = unsafe { ash::Entry::load().unwrap() };
 
     let instance = {
-        let app_info = vk::ApplicationInfo::builder().api_version(vk::API_VERSION_1_3);
-        let info = vk::InstanceCreateInfo::builder().application_info(&app_info);
+        let app_info = vk::ApplicationInfo::default().api_version(vk::API_VERSION_1_3);
+        let info = vk::InstanceCreateInfo::default().application_info(&app_info);
         unsafe { entry.create_instance(&info, None).unwrap() }
     };
 
@@ -15,11 +15,10 @@ fn main() {
 
     let device = {
         let prio = [1.0];
-        let queues = [vk::DeviceQueueCreateInfo::builder()
+        let queues = [vk::DeviceQueueCreateInfo::default()
             .queue_family_index(0)
-            .queue_priorities(&prio)
-            .build()];
-        let info = vk::DeviceCreateInfo::builder().queue_create_infos(&queues);
+            .queue_priorities(&prio)];
+        let info = vk::DeviceCreateInfo::default().queue_create_infos(&queues);
         unsafe {
             instance
                 .create_device(physical_device, &info, None)
@@ -28,13 +27,13 @@ fn main() {
     };
 
     let allocator = {
-        let callbacks = vma::DeviceMemoryCallbacks::builder()
+        let callbacks = vma::DeviceMemoryCallbacks::default()
             .allocate(Some(allocate_cb))
             .free(Some(free_cb));
-        let functions = vma::VulkanFunctions::builder()
+        let functions = vma::VulkanFunctions::default()
             .get_instance_proc_addr(Some(entry.static_fn().get_instance_proc_addr))
             .get_device_proc_addr(Some(instance.fp_v1_0().get_device_proc_addr));
-        let info = vma::AllocatorCreateInfo::builder()
+        let info = vma::AllocatorCreateInfo::default()
             .device(device.handle())
             .instance(instance.handle())
             .physical_device(physical_device)
@@ -44,14 +43,25 @@ fn main() {
     };
 
     let (buffer, alloc, _info) = {
-        let buffer_info = vk::BufferCreateInfo::builder()
+        let buffer_info = vk::BufferCreateInfo::default()
             .sharing_mode(vk::SharingMode::EXCLUSIVE)
             .size(1024)
             .usage(vk::BufferUsageFlags::VERTEX_BUFFER);
-        let alloc_info = vma::AllocationCreateInfo::builder().usage(vma::MemoryUsage::AUTO);
+        let alloc_info = vma::AllocationCreateInfo::default().usage(vma::MemoryUsage::AUTO);
 
         unsafe { vma::create_buffer(allocator, &buffer_info, &alloc_info).unwrap() }
     };
+
+    unsafe {
+        vma::set_allocation_name(allocator, alloc, Some(c"Test Allocation"));
+    }
+
+    let info = unsafe { vma::get_allocation_info(allocator, alloc) };
+
+    println!(
+        "Allocation has name: {}",
+        info.get_name().unwrap().to_str().unwrap()
+    );
 
     unsafe {
         vma::destroy_buffer(allocator, buffer, alloc);

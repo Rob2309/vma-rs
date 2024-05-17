@@ -15,15 +15,21 @@ const VK_INCLUDES: &str = concat!(
     "/../ash-mem-alloc/vendor/vk-headers/include"
 );
 
-const OUT_FILE: &str = concat!(
+const ENUMS_OUT_FILE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../ash-mem-alloc/src/enums.rs");
+const STRUCTS_OUT_FILE: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/../ash-mem-alloc/src/bindings.rs"
+    "/../ash-mem-alloc/src/structs.rs"
 );
+const FUNCTIONS_OUT_FILE: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../ash-mem-alloc/src/functions.rs"
+);
+const FFI_OUT_FILE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../ash-mem-alloc/src/ffi.rs");
 
 mod enums;
-mod functions;
 mod parsing;
 mod structs;
+mod functions;
 
 fn main() {
     // This generator directly uses libclang instead of bindgen because
@@ -40,23 +46,52 @@ fn main() {
         .unwrap();
 
     let enums = enums::generate_enums(&tu.get_entity());
-    let structs = structs::generate_structs(&tu.get_entity());
-    let functions = functions::generate_functions(&tu.get_entity());
-
-    let res = quote! {
-        use ash::vk;
-        use crate::handles::*;
-        use crate::function_ptrs::*;
-
+    let enums = quote! {
         #enums
-        #structs
-        #functions
     };
-
-    std::fs::write(OUT_FILE, res.to_string()).unwrap();
-
+    std::fs::write(ENUMS_OUT_FILE, enums.to_string()).unwrap();
     std::process::Command::new("rustfmt")
-        .arg(OUT_FILE)
+        .arg(ENUMS_OUT_FILE)
         .status()
         .unwrap();
+
+    let structs = structs::generate_structs(&tu.get_entity());
+    let structs = quote! {
+        use ash::vk;
+        use crate::function_ptrs::*;
+
+        #structs
+    };
+
+    std::fs::write(STRUCTS_OUT_FILE, structs.to_string()).unwrap();
+    std::process::Command::new("rustfmt")
+        .arg(STRUCTS_OUT_FILE)
+        .status()
+        .unwrap();
+
+    let functions = functions::generate_functions(&tu.get_entity());
+    let functions = quote! {
+        #![allow(warnings)]
+
+        use ash::vk;
+
+        #functions
+    };
+    std::fs::write(FUNCTIONS_OUT_FILE, functions.to_string()).unwrap();
+    std::process::Command::new("rustfmt")
+        .arg(FUNCTIONS_OUT_FILE)
+        .status()
+        .unwrap();
+
+    let bindings = bindgen::builder()
+        .header(HEADER)
+        .clang_arg(VMA_INCLUDES)
+        .clang_arg(VK_INCLUDES)
+        .allowlist_function("vma.*")
+        .raw_line("#![allow(warnings)]")
+        .generate()
+        .expect("Failed to generate ffi bindings");
+    bindings
+        .write_to_file(FFI_OUT_FILE)
+        .expect("Failed to write ffi bindings");
 }

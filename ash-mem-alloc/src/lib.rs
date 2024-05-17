@@ -6,7 +6,7 @@
 //! ```rust ignore
 //! use ash_mem_alloc::vma;
 //!
-//! let info = vma::AllocatorCreateInfo::builder()
+//! let info = vma::AllocatorCreateInfo::default()
 //!     .device(device.handle())
 //!     .instance(instance.handle())
 //!     .physical_device(physical_device)
@@ -16,13 +16,18 @@
 //! While certain convenience features are implemented, all functions are unsafe and operate on raw `Vma` and `Vk` handles, just like in `ash`.
 //! For the most part, functions will generally behave as one would expect from identical `ash` functions.
 
-#[allow(clippy::missing_safety_doc)]
-mod bindings;
+mod enums;
+mod structs;
 mod function_ptrs;
 mod handles;
+mod functions;
+
+mod ffi;
 
 pub mod vma {
-    pub use super::bindings::*;
+    pub use super::enums::*;
+    pub use super::structs::*;
     pub use super::function_ptrs::*;
     pub use super::handles::*;
+    pub use super::functions::*;
 }

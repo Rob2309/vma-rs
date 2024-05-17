@@ -26,6 +26,8 @@ pub enum VmaVarKind {
     StrMut,
     /// A `*const c_void` or `*mut c_void` that extends a Vulkan structure
     PNext(syn::Type, bool),
+    BufferConst(ArrayLen),
+    BufferMut(ArrayLen),
 }
 
 /// Describes how the length of an array field is determined
@@ -59,12 +61,15 @@ pub fn translate_var(
     extends_attr: Option<String>,
 ) -> VmaVarKind {
     match ty.get_kind() {
+        TypeKind::Elaborated => {
+            translate_var(&ty.get_elaborated_type().unwrap(), len_attr, extends_attr)
+        }
         // almost all types used by vma are typedefs, treat them as normal variables
         TypeKind::Typedef => VmaVarKind::Normal,
         // pointers are either references or arrays, depending on the presence of `len_attr`
         TypeKind::Pointer => {
             let pointee = ty.get_pointee_type().unwrap();
-            let converted_pointee = translate_ffi_type(&pointee);
+            let (converted_pointee, _) = translate_ffi_type(&pointee);
             let is_const = ty
                 .get_canonical_type()
                 .get_pointee_type()
@@ -74,6 +79,7 @@ pub fn translate_var(
             let len = len_attr.map(|l| ArrayLen::parse(&l));
 
             match (is_const, pointee.get_kind(), len) {
+                (false, TypeKind::Void, Some(len)) => VmaVarKind::BufferMut(len),
                 (false, TypeKind::Void, _) => {
                     // *mut c_void should not be treated like a reference
                     if let Some(extends_attr) = extends_attr {
@@ -101,6 +107,7 @@ pub fn translate_var(
                     }
                 }
                 (false, _, None) => VmaVarKind::RefMut(converted_pointee),
+                (true, TypeKind::Void, Some(len)) => VmaVarKind::BufferConst(len),
                 (true, TypeKind::Void, _) => {
                     if let Some(extends_attr) = extends_attr {
                         let trait_name = format!(
@@ -122,7 +129,7 @@ pub fn translate_var(
         // Arrays with a fixed size are only possible in structs
         TypeKind::ConstantArray => {
             let content = ty.get_element_type().unwrap();
-            let converted = translate_ffi_type(&content);
+            let (converted, _) = translate_ffi_type(&content);
 
             let len = ty.get_size().unwrap();
 
@@ -137,34 +144,46 @@ pub fn translate_var(
 /// For example, converts `const Foo*` into `*const Foo`.
 ///
 /// Also convert raw type names into namespaced ones, e.g. `VkDeviceCreateInfo` into `vk::DeviceCreateInfo`
-pub fn translate_ffi_type(ty: &Type) -> syn::Type {
+pub fn translate_ffi_type(ty: &Type) -> (syn::Type, bool) {
     match ty.get_kind() {
+        TypeKind::Elaborated => translate_ffi_type(&ty.get_elaborated_type().unwrap()),
         TypeKind::Typedef => convert_typedef(&ty.get_typedef_name().unwrap()),
         TypeKind::Pointer => {
             let pointee = ty.get_pointee_type().unwrap();
-            let converted = translate_ffi_type(&pointee);
+            let (converted, lifetime_added) = translate_ffi_type(&pointee);
             if ty
                 .get_canonical_type()
                 .get_pointee_type()
                 .unwrap()
                 .is_const_qualified()
             {
-                syn::parse2(quote! {*const #converted}).unwrap()
+                (
+                    syn::parse2(quote! {*const #converted}).unwrap(),
+                    lifetime_added,
+                )
             } else {
-                syn::parse2(quote! {*mut #converted}).unwrap()
+                (
+                    syn::parse2(quote! {*mut #converted}).unwrap(),
+                    lifetime_added,
+                )
             }
         }
         TypeKind::ConstantArray => {
             let content_type = ty.get_element_type().unwrap();
-            let converted = translate_ffi_type(&content_type);
+            let (converted, lifetime_added) = translate_ffi_type(&content_type);
 
             let len = ty.get_size().unwrap();
 
-            syn::parse2(quote! { [#converted; #len] }).unwrap()
+            (
+                syn::parse2(quote! { [#converted; #len] }).unwrap(),
+                lifetime_added,
+            )
         }
-        TypeKind::CharS | TypeKind::CharU => syn::parse2(quote! {::std::ffi::c_char}).unwrap(),
-        TypeKind::Void => syn::parse2(quote! {::std::ffi::c_void}).unwrap(),
-        TypeKind::Float => syn::parse2(quote! { f32 }).unwrap(),
+        TypeKind::CharS | TypeKind::CharU => {
+            (syn::parse2(quote! {::std::ffi::c_char}).unwrap(), false)
+        }
+        TypeKind::Void => (syn::parse2(quote! {::std::ffi::c_void}).unwrap(), false),
+        TypeKind::Float => (syn::parse2(quote! { f32 }).unwrap(), false),
         _ => panic!("Unsupported arg type: {}", ty.get_display_name()),
     }
 }
@@ -173,25 +192,47 @@ pub fn translate_ffi_type(ty: &Type) -> syn::Type {
 ///
 /// E.g. `VkDeviceCreateInfo` to `vk::DeviceCreateInfo`
 /// or `uint32_t` to `u32`
-pub fn convert_typedef(name: &str) -> syn::Type {
+pub fn convert_typedef(name: &str) -> (syn::Type, bool) {
     if let Some(name) = name.strip_prefix("Vk") {
-        syn::parse_str(&format!("vk::{name}")).unwrap()
+        let lifetime = if name == "AllocationCallbacks" {
+            "<'a>"
+        } else {
+            ""
+        };
+        (
+            syn::parse_str(&format!("vk::{name}{lifetime}")).unwrap(),
+            !lifetime.is_empty(),
+        )
     } else if let Some(name) = name.strip_prefix("PFN_vk") {
-        syn::parse_str(&format!(
-            "Option<vk::PFN_vk{}>",
-            name.trim_end_matches("KHR")
-        ))
-        .unwrap()
+        (
+            syn::parse_str(&format!(
+                "Option<vk::PFN_vk{}>",
+                name.trim_end_matches("KHR")
+            ))
+            .unwrap(),
+            false,
+        )
     } else if let Some(name) = name.strip_prefix("Vma") {
-        syn::parse_str(name).unwrap()
+        let lifetime = if name == "AllocationInfo"
+            || name == "AllocationInfo2"
+            || name == "DefragmentationPassMoveInfo"
+        {
+            "<'a>"
+        } else {
+            ""
+        };
+        (
+            syn::parse_str(&format!("crate::vma::{name}{lifetime}")).unwrap(),
+            !lifetime.is_empty(),
+        )
     } else if name.starts_with("PFN_vma") {
-        syn::parse_str(name).unwrap()
+        (syn::parse_str(name).unwrap(), false)
     } else {
         let converted = match name {
             "uint32_t" => "u32",
             "size_t" => "usize",
             _ => panic!("Unknown typedef: {name}"),
         };
-        syn::parse_str(converted).unwrap()
+        (syn::parse_str(converted).unwrap(), false)
     }
 }
